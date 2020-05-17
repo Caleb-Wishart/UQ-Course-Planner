@@ -4,7 +4,6 @@ from sys import stderr
 import re
 import tkinter as tk
 
-
 # Q.O.L variables
 line_ending = '\n------------------------\n'
 
@@ -14,6 +13,8 @@ year = '2020'
 debug_lines = False
 
 # parses the logic retrieved from the website
+# Error with COMS3000
+
 class logicParser():
 
     def __init__(self):
@@ -146,20 +147,34 @@ class websiteScraper():
         pass
 
     # Changes the case and manipulates the input to parse
-    def inputModification(self,inp):
+    def inputModification(self,inp,code):
         re_malformed_operator_left = re.compile(r'\w(AND|OR)')
         re_malformed_operator_right = re.compile(r'(AND|OR)\w')
+        course_code = re.compile(r'[A-Z]{4}\d{4}')
 
         inp = inp.upper()
         inp = re.sub(r',',' AND',inp) # replacing the ',' with 'AND'
         inp = re.sub(r'\+','AND',inp) # replacing the '+' with 'AND'
-        # add missign spaces for logical operators
+        # add missing spaces for logical operators
         while re_malformed_operator_left.search(inp):
             location = re_malformed_operator_left.search(inp).start()
             inp = inp[:location+1] + ' ' + inp[location+1:]
+
         while re_malformed_operator_right.search(inp):
             location = re_malformed_operator_right.search(inp).start()
-            inp = inp[:location+3] + ' ' + inp[location+3:]
+            if inp[location] == 'A':
+                inp = inp[:location+3] + ' ' + inp[location+3:]
+            else:
+                inp = inp[:location+2] + ' ' + inp[location+2:]
+
+        edge_case1 = re.compile(r'((?<=(: ))(.*?)(?=;|$))',re.MULTILINE) #See COMS3000 for example
+        if 'F OR' in inp:
+            srch = edge_case1.findall(inp)
+            if course_code.search(inp).group(0) == code:
+                inp = srch[0][0]
+            else:
+                inp = srch[1][0]
+
         return inp
 
     # returns a BS4 soup object
@@ -193,19 +208,19 @@ class course():
         # the follow follow the syntax of parse(the modified result of (the contents of the tag in the BS4 object))
         # if the tag doesnt exist, an error throws and we just return an empty list
         try:
-            self.prerequisite = parser.prerequisiteList(webGet.inputModification(soup_object.find(id='course-prerequisite').string))
+            self.prerequisite = parser.prerequisiteList(webGet.inputModification(soup_object.find(id='course-prerequisite').string,self.code))
         except:
             self.prerequisite = []
         try:
-            self.recommended = parser.prerequisiteList(webGet.inputModification(soup_object.find(id='course-recommended-prerequisite').string))
+            self.recommended = parser.prerequisiteList(webGet.inputModification(soup_object.find(id='course-recommended-prerequisite').string,self.code))
         except:
             self.recommended = []
         try:
-            self.companion = parser.prerequisiteList(webGet.inputModification(soup_object.find(id='course-companion').string))
+            self.companion = parser.prerequisiteList(webGet.inputModification(soup_object.find(id='course-companion').string,self.code))
         except:
             self.companion = []
         try:
-            self.incompatible = parser.prerequisiteList(webGet.inputModification(soup_object.find(id='course-incompatible').string))
+            self.incompatible = parser.prerequisiteList(webGet.inputModification(soup_object.find(id='course-incompatible').string,self.code))
         except:
             self.incompatible = []
 
@@ -430,13 +445,7 @@ course_items = [
 
     course('STAT2203',6),
     course('COMP3506',6),
-    course('COMS3000',6),
-    course('COMP3301',6),
-
-    course('COMP3320',7),
-    course('COMP4507',7),
-
-    course('DECO3801',8),
+    course('COMS3000',6)
     ]
 [print(course_item.prerequisite) for course_item in course_items if course_item.code == 'COMS3000']
 # call
