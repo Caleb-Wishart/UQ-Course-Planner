@@ -10,7 +10,7 @@ line_ending = '\n------------------------\n'
 # email for bug reports / requests
 email = 'cw.online.acc@outlook.com'
 year = '2020'
-debug_lines = True
+debug_lines = False
 
 # parses the logic retrieved from the website
 # Error with COMS3000
@@ -445,13 +445,7 @@ course_items = [
 
     course('STAT2203',6),
     course('COMP3506',6),
-    course('COMS3000',6),
-    course('COMP3301',6),
-
-    course('COMP3320',7),
-    course('COMP4507',7),
-
-    course('DECO3801',8),
+    course('COMS3000',6)
     ]
 [print(course_item.prerequisite) for course_item in course_items if course_item.code == 'COMS3000']
 # call
