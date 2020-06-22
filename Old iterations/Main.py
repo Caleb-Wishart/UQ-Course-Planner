@@ -447,7 +447,6 @@ course_items = [
     course('COMP3506',6),
     course('COMS3000',6)
     ]
-[print(course_item.prerequisite) for course_item in course_items if course_item.code == 'COMS3000']
 # call
 if __name__ == "__main__":
     root = tk.Tk()

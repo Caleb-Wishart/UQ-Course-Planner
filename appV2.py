@@ -6,7 +6,11 @@ import tkinter as tk
 
 # TODO TODO TODO TODO
 # Mapping component
-# class to hold page transistion buttons (courseSelect, courseMap, Settings)
+# completely refactor code and split into multipel files doing the following at the same time
+#  -> refactor custom widgets to pass *args and **kwargs
+#  -> Frames for collections of elements
+#  -> Object to hold all course instances
+#  -> class to hold page transistion buttons (courseSelect, courseMap, Settings)
 # settings area, default classes per semester, add second check when deleting semesters
 # TODO TODO TODO TODO
 
@@ -71,7 +75,7 @@ class logicParser():
                 if len(work_final_options[num]) == 0:
                     work_final_options[num] = working_item
                 else:
-                    work_final_options[num] += ', {}'.format(working_item)
+                    work_final_options[num] += ',{}'.format(working_item)
                 
                 num+=1
                 # remove the item from the process queue
@@ -82,7 +86,7 @@ class logicParser():
                 if len(work_final_options[num]) == 0:
                     work_final_options[num] = working_item
                 else:
-                    work_final_options[num] += ', {}'.format(working_item)
+                    work_final_options[num] += ',{}'.format(working_item)
                 
                 num+=1
                 # remove the item from the process queue
@@ -99,7 +103,7 @@ class logicParser():
                         print('Required courses are too complicated to parse\n for support please contanct the author at: ',email)
                         exit()
                     else:
-                        work_final_options[num] += ', {}'.format(item)
+                        work_final_options[num] += ',{}'.format(item)
                 
                 num+=1
                 # remove item from the process queue
@@ -127,7 +131,7 @@ class logicParser():
                     # remove item from process queue
                     work_array.remove(working_item)
                 else:
-                    self.final_options = [item + ', {}'.format(working_item) for item in self.final_options]
+                    self.final_options = [item + ',{}'.format(working_item) for item in self.final_options]
                     # remove item from process queue
                     work_array.remove(working_item)
             # if the current item contains an OR logical operator send it to the OR function to process
@@ -227,12 +231,20 @@ class semester():
     def newCourseLocation(self):
         return len(self.courses)
 
+    def removeCourse(self,code):
+        for course in self.courses:
+            if course.code == code:
+                del self.courses[self.courses.index(course)]
+                break
+
+
 # a course class (one for each item)
 class course():
     # the course code for the object and parent_semester object for association
     # DEFAULT: code (user prompt), parent_semester (prevents no association)
-    def __init__(self,code="Enter Course Code",parent_semester=semester()):
-        
+    def __init__(self,parent,code="Enter Course Code",parent_semester=semester()):
+        self.parent = parent
+
         # course Code
         self.code = code
         self.old_code = code
@@ -254,10 +266,14 @@ class course():
         # lists of attributes to search
         self.prerequisite = []
         self.recommended = []
-        # self.companion = []
-        # self.incompatible = []   
-           
+        self.companion = []
+        self.incompatible = []
+        self.description = "Course Description Placeholder Text\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7"
 
+        # associated prerequisite data
+        self.num_prereq_has = 0
+        self.num_prereq_of = 0
+           
     def update(self):
         if self.old_code != self.code or self.firstTest:        
             soup_object = self.webGet.fetchHTML(self.code,year)
@@ -269,16 +285,16 @@ class course():
             except:
                 self.status_code = 200
             if self.status_code == 200:
-                # the follow follow the syntax of parse(the modified result of (the contents of the tag in the BS4 object))
+                # following the syntax of parse(the modified result of (the contents of the tag in the BS4 object))
                 # if the tag doesnt exist, an error throws and we just return an empty list indicating no items
                 try:
                     self.prerequisite = self.parser.combinationsList(self.webGet.inputModification(soup_object.find(id='course-prerequisite').string,self.code))
                 except:
                     self.prerequisite = []
-                try:
-                    self.recommended = self.parser.combinationsList(self.webGet.inputModification(soup_object.find(id='course-recommended-prerequisite').string,self.code))
-                except:
-                    self.recommended = []
+                # try:
+                #     self.recommended = self.parser.combinationsList(self.webGet.inputModification(soup_object.find(id='course-recommended-prerequisite').string,self.code))
+                # except:
+                #     self.recommended = []
                 # try:
                 #     self.companion = self.parser.combinationsList(self.webGet.inputModification(soup_object.find(id='course-companion').string,self.code))
                 # except:
@@ -287,9 +303,39 @@ class course():
                 #     self.incompatible = self.parser.combinationsList(self.webGet.inputModification(soup_object.find(id='course-incompatible').string,self.code))
                 # except:
                 #     self.incompatible = []
+                try:
+                    self.description = soup_object.find(id='course-summary').string
+                except:
+                    self.description = 'No description given'
 
             self.old_code = self.code
             self.firstTest = False
+            # remove remove item from null_semester
+            if self.code in [c.code for c in self.parent.null_semester.courses]:
+                self.parent.null_semester.removeCourse(self.code)
+
+            status = 0
+            for code in set(','.join(self.prerequisite).split(',')):
+                if len(code) == 8: # check its a code and not null
+                    print(code,end=line_ending)
+                    self.num_prereq_has += 1
+                    for sem in self.parent.semesters:
+                        for item in sem.courses:
+                            if item.code == code:
+                                item.addPreFor()
+                                status = 1
+                                if status:
+                                    break
+                        if status:
+                                break
+                    # which means item doesn't exist
+                    if not status:
+                        self.parent.null_semester.addCourse(course(self.parent,code=code,parent_semester=self.parent.null_semester))
+                    status = 0
+
+    
+    def addPreFor(self):
+        self.num_prereq_of += 1
 
 #########################################
 #       Tkinter Frames and pages        #
@@ -304,7 +350,7 @@ class coursePlannerAssistantApp(tk.Tk):
         
         # Window Managment
         self.title('UQ Course Planner Assistant: Alpha')
-        # self.geometry('1200x400')
+        self.geometry('960x540')
         # self.resizable(0,0)
         
         # the master container for the program
@@ -317,33 +363,19 @@ class coursePlannerAssistantApp(tk.Tk):
 
         self.frames = {}
         # create the frames
-        for F in (homeCanvas,coursePage):
+        for F in (coursePage,mapCanvas,courseInfoPage):
             frame = F(container, self)
             self.frames[F] = frame
             frame.grid(row=0,column=0,sticky=tk.NSEW)
         # call the first screen
-        self.show_frame(coursePage)
+        self.show_frame(courseInfoPage)
 
     # bring the specified frame to the front
     def show_frame(self, cont):
         frame = self.frames[cont]
         frame.tkraise()
-
-# the main canvas for the course descriptions
-class homeCanvas(tk.Frame):
-    # the parent container and tkinter Controller
-    def __init__(self,parent,controller):
-        # Frame initialisation
-        tk.Frame.__init__(self,parent)
-        # default label
-        label = tk.Label(self,text='Course Map')
-        label.pack(pady=10,padx=10)
-        # canvas item
-        canvas = tk.Canvas(self)
-        canvas.pack(pady=10,padx=10)
-        # default transistion button
-        courseButton = tk.Button(self,text="Back",command=lambda: controller.show_frame(coursePage))
-        courseButton.pack()
+        if cont == courseInfoPage:
+            self.frames[cont].optionSelect.update()
 
 # the course selection criteria
 class coursePage(tk.Frame):
@@ -355,13 +387,18 @@ class coursePage(tk.Frame):
         # tkinter widget array
         self.labels = []
 
+        # courses that are not a part of the user description
+        self.null_semester = semester(-1)
+
         # Default frame label
         label = tk.Label(self,text='Course Select')
         label.grid(row=0,column=1,pady=10,padx=10) # row 0, column 0 reserved for transistion buttons
         # default transistion button
-        homeButton = tk.Button(self,text="Home",command=lambda: controller.show_frame(homeCanvas))
-        homeButton.grid(row=0,column=0)
-
+        mapCanvasButton = tk.Button(self,text="Course Map",command=lambda: controller.show_frame(mapCanvas))
+        mapCanvasButton.grid(row=0,column=0)
+        # default transistion button
+        courseInfoPageButton = tk.Button(self,text="Course Info",command=lambda: controller.show_frame(courseInfoPage))
+        courseInfoPageButton.grid(row=1,column=0)
         # query the web on items
         queryWebButton = tk.Button(self,text="Send 2 Web",command=lambda: self.updateWidgetCourseObjects())
         queryWebButton.grid(row=0,column=2)
@@ -373,7 +410,7 @@ class coursePage(tk.Frame):
         self.semesters = []
         # creating the first semester
         self.semesters.append(semester(1))
-        self.semesters[0].addCourse(course(parent_semester=self.semesters[0]))
+        self.semesters[0].addCourse(course(self,parent_semester=self.semesters[0]))
         
         # initial generation
         self.generateLabels()
@@ -387,7 +424,7 @@ class coursePage(tk.Frame):
             elif widget.ID == "courseNumControls" or widget.ID == "semesterNumControls":
                 widget.destroyElements()
             else:
-                print("unexpected widget in label area")
+                print("unexpected widget in label area") # unexpected item in the bagging area
         # reset list
         self.labels = []
 
@@ -407,7 +444,7 @@ class coursePage(tk.Frame):
     #  add a semester the the semester list
     def addSemester(self):
         self.semesters.append(semester(len(self.semesters) + 1))
-        self.semesters[-1].addCourse(course(parent_semester=self.semesters[-1]))
+        self.semesters[-1].addCourse(course(self,parent_semester=self.semesters[-1]))
 
     # remove the last semester from the list
     def popSemester(self):
@@ -419,6 +456,57 @@ class coursePage(tk.Frame):
                 widget.queryWeb()
         self.webQueryStatus.update("Nothing")
 
+# the main canvas for the course descriptions
+class mapCanvas(tk.Frame):
+    # the parent container and tkinter Controller
+    def __init__(self,parent,controller):
+        # Frame initialisation
+        tk.Frame.__init__(self,parent)
+        # default label
+        label = tk.Label(self,text='Course Map')
+        label.grid(row=0,column=1)
+        # canvas item
+        canvas = tk.Canvas(self)
+        label.grid(row=1,column=1)
+        # default transistion button
+        coursePageButton = tk.Button(self,text="Back",command=lambda: controller.show_frame(coursePage))
+        coursePageButton.grid(row=1,column=0)
+
+# the main canvas for the course descriptions
+class courseInfoPage(tk.Frame):
+    # the parent container and tkinter Controller
+    def __init__(self,parent,controller):
+        # Frame initialisation
+        tk.Frame.__init__(self,parent)
+        self.controller = controller
+        # Default frame label
+        label = tk.Label(self,text='Course Information')
+        label.grid(row=0,column=1,pady=10,padx=10) # row 0, column 0 reserved for transistion buttons
+        # default transistion button
+        coursePageButton = tk.Button(self,text="Home",command=lambda: controller.show_frame(coursePage))
+        coursePageButton.grid(row=0,column=0)
+
+        self.optionSelect = courseInfoSelect(self)
+        self.optionSelect.grid(row=0,column=2)
+
+        tk.Label(self,relief=tk.GROOVE,text="Code",background="#DDDDDD",padx=4,pady=4).grid(row=1,column=1,sticky=tk.N)
+        self.title = tk.Label(self,relief=tk.GROOVE,text=self.optionSelect.text.get(),background="#DDDDDD",padx=4,pady=4)
+        self.title.grid(row=1,column=1)
+
+        self.description = scrollableRegion(self)
+        self.description.grid(row=1,column=2)
+
+        self.prereqMap = courseMap(self)
+
+    def updatePage(self):
+        title = self.optionSelect.text.get()
+        self.title["text"] = title
+
+        self.description.text['state'] = tk.NORMAL
+        self.description.text.delete(1.0,tk.END)
+        self.description.text.insert(tk.INSERT, *[co.description for co in self.optionSelect.options if co.code == title])
+        self.description.text['state'] = tk.DISABLED
+        
 #########################################
 #       Custom Tkinter Widgets          #
 #########################################
@@ -448,7 +536,7 @@ class semesterLabel(tk.Label):
 class courseLabel(tk.Entry):
     # parent widget for location to draw, course for association, semester for locality, row for position
     # DEFAULT: course (prevents no association), semester (prevents NULL semester), row (prevents grid location error)
-    def __init__(self,parent, course=course(),semester=1,row=2):
+    def __init__(self,parent, course='None',semester=1,row=2):
         # Entry initialisation
         tk.Entry.__init__(self,parent)
         self.parent = parent
@@ -461,6 +549,8 @@ class courseLabel(tk.Entry):
         self.height = 40  # max number of pixels high 
         # associated course
         self.course = course
+        if self.course == 'None':
+            self.course = course(self)
         # course code to display
         self.text = tk.StringVar()
         self.text.set(self.course.code)
@@ -472,8 +562,8 @@ class courseLabel(tk.Entry):
         self.error_background_colour = '#FFAAAA' # light red
         self.highlighted_background_colour =  '#a0a0a0' # light grey
         textColour = '#000000' #black
-        border_type = 'groove'
-        justify = 'center'
+        border_type = tk.GROOVE
+        justify = tk.CENTER
 
         # set tkinter attributes
         self.config(textvariable=self.text, relief=border_type, state=tk.DISABLED, justify=justify) # items
@@ -497,7 +587,11 @@ class courseLabel(tk.Entry):
     
     # triggers once mouse leaves widget
     def __exit_handler(self):
-        self.course.code = self.get()
+        if len(self.get()) == 8:
+            self.course.code = self.get().upper()
+        else:
+            self.course.code = self.get()
+
         if self.course.status_code == 200:
             self.config(disabledbackground=self.background_colour,state=tk.DISABLED)
         else: 
@@ -512,10 +606,16 @@ class courseLabel(tk.Entry):
             self.config(disabledbackground=self.background_colour,state=tk.DISABLED)
         else: 
             self.config(disabledbackground=self.error_background_colour,state=tk.DISABLED) # error colour
+            self.course.description = 'Invalid Course Code'
 
     def __print_handler(self):
         print(self.course.code)
+        print(self.course.num_prereq_has)
+        print(self.course.num_prereq_of)
         print(self.course.prerequisite,end=line_ending)
+        for course in self.parent.null_semester.courses:
+            print(course.code)
+        print(len(self.parent.null_semester.courses),end=line_ending)
 
 # custom widget for adding courses to a semester
 class courseNumControls():
@@ -548,7 +648,7 @@ class courseNumControls():
 
     # command for the add course, calls a method of the associated semester object then updates display
     def controllerAddCourse(self):
-        self.semester.addCourse(course(parent_semester=self.semester))
+        self.semester.addCourse(course(self.parent,parent_semester=self.semester))
         self.parent.generateLabels()
 
     # command for the remove course, calls a method of the associated semester object then updates display
@@ -622,6 +722,64 @@ class webQuerryStatusBar(tk.Label):
         self.config(text=self.text)
         self.parent.controller.update()
 
+# a custom widget to select which course to show info on
+class courseInfoSelect(tk.OptionMenu):
+    def __init__(self, parent):
+        self.parent = parent
+        # by navigating class tree find all options
+        self.options = [label.course for label in self.parent.controller.frames[coursePage].labels if label.ID == 'courseLabel']
+        # set default value
+        self.text = tk.StringVar()
+        self.text.set(self.options[0].code)
+        self.text.trace("w",lambda *args: self.parent.updatePage())
+        # create widget
+        tk.OptionMenu.__init__(self,self.parent,self.text,*[op.code for op in self.options])
+
+    def update(self):
+        # delete existing options
+        self['menu'].delete(0, 'end')
+        # find all options
+        self.options = [label.course for label in self.parent.controller.frames[coursePage].labels if label.ID == 'courseLabel']
+        # set default to first
+        self.text.set(self.options[0].code)
+        # add all options to menu
+        for choice in self.options:
+            self['menu'].add_command(label=choice.code, command=tk._setit(self.text, choice.code))
+
+# a custom scrollable region with a title
+class scrollableRegion(tk.Frame):
+    def __init__(self,parent):
+        self.parent = parent
+        # frame size (char)
+        width=75
+        height=5
+        tk.Frame.__init__(self,parent,width=width,height=height)
+        # title
+        self.title = tk.Label(self,relief=tk.GROOVE,text="Description",background="#DDDDDD",padx=4,pady=4)
+        self.title.pack(side=tk.TOP)
+        # canvas for text
+        canvas = tk.Canvas(self,width=width,height=height)
+        scrollbar = tk.Scrollbar(self, orient="vertical", command=canvas.yview)
+        self.scrollable_frame = tk.Frame(canvas,width=width,height=height)
+        self.scrollable_frame.bind("<Configure>",lambda e: canvas.configure(scrollregion=canvas.bbox("all")) )
+
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        self.text = tk.Text(self,width=width,height=height,relief=tk.GROOVE,background="#DDDDDD",wrap=tk.WORD)
+        self.text.pack()
+        self.text.insert(tk.INSERT,"Course Description")
+        self.text['state'] = tk.DISABLED
+
+# a custom canvas that shows a map of courses
+class courseMap(tk.Canvas):
+    def __init__(self,parent):
+        self.parent = parent
+        pass
 #########################################
 #               MAIN CALL               #
 #########################################
