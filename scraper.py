@@ -1,21 +1,8 @@
 from bs4 import BeautifulSoup
 from requests import get as rget
-from sys import stderr
 import re
 
-#########################################
-#         MISC GLOBAL VARIABLES         #
-#########################################
-
-# Q.O.L variables
-line_ending = '\n------------------------\n'
-# taken to subjectClasses -> customWidgets -> main
-
-# email for bug reports / requests
-email = 'cw.online.acc@outlook.com'
-
-# year to look for
-year = '2020'
+from appSettings import *
 
 #########################################
 #       scraper & parsing functions     #

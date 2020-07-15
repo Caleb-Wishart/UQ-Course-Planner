@@ -1,8 +1,7 @@
-from sys import stderr
 import tkinter as tk
 
 from subjectClasses import *
-
+from appSettings import *
 #########################################
 #         MISC GLOBAL VARIABLES         #
 #########################################
@@ -122,11 +121,9 @@ class courseLabel(tk.Entry):
         self.colourFromStatus()
     
     def queryWeb(self):
-        # send query
-        self.parentPage.webQueryStatus.update(self.course.code)
-        
+        # send query        
         # update corresponding course object
-        self.course.update()
+        self.course.updateCourseInfo(self.parentPage)
         
         # disable widget and adjust colour accordingly
         self.colourFromStatus()
@@ -141,17 +138,15 @@ class courseLabel(tk.Entry):
             self.config(disabledbackground=self.error_background_colour,state=tk.DISABLED) # error colour
 
     def __print_handler(self):
-        # print(self.course.code)
-        # print(self.course.num_prereq_has)
-        # print(self.course.num_prereq_of)
-        # print(self.course.prerequisite,end=line_ending)
+        print(self.course.code)
+        print(self.course.prerequisite,end=line_ending)
 
         # for course in self.parentPage.null_semester.courses:
         #     print(course.code)
         # print(len(self.parentPage.null_semester.courses),end=line_ending)
 
         for course in self.controller.courseList:
-            print(course.code)
+            endPrint(course.code, course.prerequisite)
 
 # a custom scrollable region with a title
 class scrollableRegion(tk.Frame):
@@ -202,7 +197,7 @@ class courseInfoSelect(tk.OptionMenu):
         # create widget
         tk.OptionMenu.__init__(self,self.parentPage,self.text,*[op.code for op in self.options])
 
-    def update(self):
+    def updateCourseInfoSelection(self):
         # delete existing options
         self['menu'].delete(0, 'end')
         # find all options
@@ -333,62 +328,21 @@ class webQuerryStatusBar(tk.Frame):
         self.stausText = tk.Label(self)
         self.stausText.pack()
 
-        self.text = 'Searching for: {}'.format("Nothing")
+        self.text = 'Awaiting Request'
         self.stausText.config(text=self.text,font=standardFont)
         
 
-    def update(self,code):
+    def updateScraping(self,code):
         self.text = 'Searching for: {}'.format(code)
         self.stausText.config(text=self.text,font=standardFont)
         self.controller.update()
 
-#########################################
-#          Mapping Components           #
-#########################################
-# a custom canvas that shows a map of courses
-class courseMap(tk.Frame):
-    def __init__(self,parentPage,controller):
-        tk.Frame.__init__(self,parentPage)
-        self.parentPage = parentPage
-        self.controller = controller
-
-        self.canvasLabels = []
-        self.canvasLines = []
-
-        self.tagTextBox = 'textBox'
-        self.tagTextItem = 'textItem'
-
-        # group title
-        self.title = tk.Label(self,relief=standardRelief,text="Prerequisite Map",font=standardFont,background=standardWidgetColour,padx=4,pady=4)
-        self.title.pack(side=tk.TOP)
-        # canvas
-        self.canvas = tk.Canvas(self,bg=standardWidgetColour,relief=standardRelief,width=500,height=200)
-        self.canvas.pack()
-        self.draw_Label((250,100),'WXYZ0987')
-        self.draw_Label((100,100),'ABCD1234')
-        self.draw_Line('ABCD1234','WXYZ0987')
-
+    def updateParsing(self,code):
+        self.text = 'Parsing data for: {}'.format(code)
+        self.stausText.config(text=self.text,font=standardFont)
+        self.controller.update()
     
-    # draw label with pos being top left of box
-    def draw_Label(self,pos,text):
-        x,y = pos
-        boxHeight = 30
-        boxWidth = boxHeight*5/2
-        
-        box = self.canvas.create_rectangle(x,y,x+boxWidth,y+boxHeight,fill='light blue',tags=(text,self.tagTextBox)) 
-        textItem = self.canvas.create_text(x+boxWidth/2,y+boxHeight/2,text=text,font=standardFont,tags=(text, self.tagTextItem))
-    
-    def draw_Line(self,code1,code2):
-        # find the intersection between the set of items that are textBoxes and that have the tag of our code
-        # turn it into a list and get the first (and theoretically) only element [make list as sets are not indexable]
-        item1 = self.getIntersectingItem(self.tagTextBox,code1)
-        item2 = self.getIntersectingItem(self.tagTextItem,code1)
-        print(self.canvas.find_withtag(item1))
-
-    def getIntersectingItem(self,tag,code):
-        # find the intersection between the set of items that are textBoxes and that have the tag of our code
-        # turn it into a list and get the first (and theoretically) only element [make list as sets are not indexable]
-        return list(set(self.canvas.find_withtag(tag)).intersection(self.canvas.find_withtag(code)))[0]
-
-
-        
+    def updateNormal(self):
+        self.text = 'Awaiting Request'
+        self.stausText.config(text=self.text,font=standardFont)
+        self.controller.update()

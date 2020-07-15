@@ -1,5 +1,5 @@
-from sys import stderr
 from scraper import *
+from appSettings import *
 
 #########################################
 #    Classes for real world concepts    #
@@ -62,14 +62,17 @@ class course():
         self.recommended = []
         self.companion = []
         self.incompatible = []
-        self.description = "Course Description Placeholder Text\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7"
+        self.description = "Course Description Placeholder Text\nTry pressing Send 2 Web on the Course Search page\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7"
+
+        self.prerequisiteMap = deque()
 
         # associated prerequisite data
-        self.num_prereq_has = 0
-        self.num_prereq_of = 0
+        self.prereq_for = []
            
-    def update(self):
-        if self.old_code != self.code or self.firstTest:        
+    def updateCourseInfo(self,widgitPageID):
+        # if false do nothing
+        if self.old_code != self.code or self.firstTest:
+            widgitPageID.webQueryStatus.updateScraping(self.code)        
             soup_object = self.webGet.fetchHTML(self.code,year)
 
             # check if course exists by searching for course-notfound tag
@@ -78,7 +81,9 @@ class course():
                 self.status_code = 404
             except:
                 self.status_code = 200
+            # if all good find items
             if self.status_code == 200:
+                widgitPageID.webQueryStatus.updateParsing(self.code)
                 # following the syntax of parse(the modified result of (the contents of the tag in the BS4 object))
                 # if the tag doesnt exist, an error throws and we just return an empty list indicating no items
                 try:
@@ -101,42 +106,81 @@ class course():
                     self.description = soup_object.find(id='course-summary').string
                 except:
                     self.description = 'No description given'
-                
-                self.controller.courseList.append(self)
+
+                # remove item from null_semester
+                if self.code in [c.code for c in self.parentPage.null_semester.courses]:
+                    self.parentPage.null_semester.removeCourse(self.code)
+                    self.controller.courseList = [course for course in self.controller.courseList if course.code != self.code]
+
+                # add to list if not alreadty present
+                if self not in self.controller.courseList:
+                    self.controller.courseList.append(self)
+
             elif self.status_code == 404:
                 # remove item if possible
-                try:
-                    self.controller.courseList.remove(self)
-                except:
-                    # do nothing as if item isn't in list we don't need to remove anything
-                    pass
-
+                self.controller.courseList = [course for course in self.controller.courseList if course.code != self.code]
+        
             self.old_code = self.code
             self.firstTest = False
-
-            # remove remove item from null_semester
-            if self.code in [c.code for c in self.parentPage.null_semester.courses]:
-                self.parentPage.null_semester.removeCourse(self.code)
 
             status = 0
             for code in set(','.join(self.prerequisite).split(',')):
                 if len(code) == 8: # check its a code and not null
-                    print(code,end=line_ending)
-                    self.num_prereq_has += 1
                     for sem in self.parentPage.semesters:
                         for item in sem.courses:
                             if item.code == code:
-                                item.addPreFor()
                                 status = 1
                                 if status:
                                     break
                         if status:
                                 break
-                    # which means item doesn't exist
+                    # which means item doesn't exist yet
                     if not status:
-                        self.parentPage.null_semester.addCourse(course(self.parentPage,self.controller,code=code,parent_semester=self.parentPage.null_semester))
-                    status = 0
-            # update in master list
+                        # check if code is already present
+                        if code not in [course.code for course in self.parentPage.null_semester.courses]:
+                            self.parentPage.null_semester.addCourse(course(self.parentPage,self.controller,code=code,parent_semester=self.parentPage.null_semester))
+                    status = 0 # reset
+            self.parentPage.updateMasterCourseList()
+            widgitPageID.webQueryStatus.updateNormal()
+        # end if statement
+    
+    def prerequisiteMapping(self,widgitPageID):
+        # remove existing items
+        self.prerequisiteMap.clear()
+        self.prerequisiteMap = list(self.prerequisiteMap)
+        # add the course items for the prereqs
+        # transform into set then list again to remove duplicate items
+        self.prerequisiteMap.append(
+            list(set([self.courseFromCode(code) 
+                for item in self.prerequisite
+                    for code in item.split(',') 
+                if self.courseFromCode(code) != None])))
+        # check if there are any prereqs to start with
+        if len(self.prerequisiteMap[0]) != 0:
+            # start at the top, get the nest level and loop through, ends when no prereqs found
+            for nestLevel, prereqGroup in enumerate(self.prerequisiteMap):
+                self.prerequisiteMap.append([])
+                for course in prereqGroup:
+                    if recursive_searching:
+                        course.updateCourseInfo(widgitPageID)
+                    # for code in course.prerequisite: # this code can be uncommented when creating a system to deal with alternate options
+                    for code in set([code for item in course.prerequisite for code in item.split(',')]):
+                        if self.courseFromCode(code) != None:
+                            self.prerequisiteMap[nestLevel+1].append(self.courseFromCode(code))
+                # if we haven't added any new courses
+                if len(self.prerequisiteMap[nestLevel+1]) == 0:
+                    break
+        # remove empty list at the end
+        self.prerequisiteMap.pop()
+        # add self to the left
+        self.prerequisiteMap = deque(self.prerequisiteMap)
+        self.prerequisiteMap.appendleft([self])
 
-    def addPreFor(self):
-        self.num_prereq_of += 1
+    def courseFromCode(self,code):
+        try:
+            return [course for course in self.controller.courseList if course.code == code][0]
+        except:
+            return None
+
+    # end func
+# end class
