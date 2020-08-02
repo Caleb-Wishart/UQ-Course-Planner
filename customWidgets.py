@@ -8,162 +8,218 @@ from appSettings import *
 
 debug_lines = False
 
-standardWidgetColour = '#DDDDDD'
-standardRelief = tk.GROOVE
-standardFont = ('Helvetica', 10)
+standard_widget_colour = '#DDDDDD'
+standard_relief = tk.GROOVE
+standard_font = ('Helvetica', 10)
 
 #########################################
 #                Frames                 #
 #########################################
-# the default frame to be inherited for pages
-class defaultFrame(tk.Frame):
-    def __init__(self,parentApp,controller,title):
-        tk.Frame.__init__(self,parentApp)
+
+
+class DefaultFrame(tk.Frame):
+    """The Default frame to use for application pages
+
+    Parameters:
+        parentApp (cls): Parent application for reference.
+        controller (tk.Tk()): tkinter Tk class
+        title (str): page title for reference
+    """
+
+    def __init__(self, parentApp, controller, title: str):
+        tk.Frame.__init__(self, parentApp)
         self.parentApp = parentApp
         self.controller = controller
-        self.pageTitle = title
-    
-    def draw_default_widgets(self):
+        self.page_title = title
+
+    def __repr__(self):
+        location = self.grid_info()
+        return f'<DefautFrame: Located:{self.parentPage} at row: {location["row"]}, column: {location["column"]}>'
+
+    def draw_default_widgets(self) -> None:
+        """Places the default widgets on the page"""
         # Default frame label
-        label = tk.Label(self,text=self.pageTitle,font=standardFont)
-        label.grid(row=0,column=1,pady=10,padx=10) # row 0, column 0 reserved for transistion buttons
+        label = tk.Label(self, text=self.page_title, font=standard_font)
+        # row 0, column 0 reserved for transistion buttons
+        label.grid(row=0, column=1, pady=10, padx=10)
 
         # nav buttons
-        pageNavigation(self,self.controller).grid(row=0,column=0)
+        PageNavigation(self, self.controller).grid(row=0, column=0)
 
 #########################################
 #                Labels                 #
 #########################################
 
-# a custom canvas label with certain attributes and values
-class semesterLabel(tk.Label):
-    # parentPage widget for location to draw. semester_number for locality
-    # DEFAULT=1 to prevent accidental NULL semester locations
-    def __init__(self,parentPage,semester_number=1):
+
+class SemesterLabel(tk.Label):
+    """A custom tkinter Label to show a semester label
+
+    Parameters:
+        parentApp (cls): Parent application for reference.
+        controller (tk.Tk()): tkinter Tk class
+        semester_number (int): the semester number to display
+            DEFAULT VALUE: 1, prevents null semesters
+    """
+
+    def __init__(self, parentPage, semester_number: int = 1):
         # label initialisation
-        tk.Label.__init__(self,parentPage)
+        tk.Label.__init__(self, parentPage)
         # widget ID
-        self.ID = "semesterLabel"
+        self.ID = "SemesterLabel"
         # re-attribution
         self.semester_number = semester_number
-        # the semester title
-        self.text = "Semester {}".format(self.semester_number)
+        # the Semester title
+        self.text = f"Semester {self.semester_number}"
         # grid location
         self.row = 1
-        self.column = self.semester_number 
+        self.column = self.semester_number
         # set tkinter widget attribute
-        self.config(text=self.text,font=standardFont)
+        self.config(text=self.text, font=standard_font)
         # place in grid
-        self.grid(row=self.row,column=self.column,pady=10,padx=10)
+        self.grid(row=self.row, column=self.column, pady=10, padx=10)
 
-# a custom canvas label with certain attributes and values
-class courseLabel(tk.Entry):
-    # parentPage widget for location to draw, course for association, semester for locality, row for position
-    # DEFAULT: course (prevents no association), semester (prevents NULL semester), row (prevents grid location error)
-    def __init__(self,parentPage,controller, course='None',semester=1,row=2):
+    def __repr__(self):
+        location = self.grid_info()
+        return f'<SemesterLabel: Located:{self.parentPage} at row: {location["row"]}, column: {location["column"]}: {self.text}>'
+
+
+class CourseLabel(tk.Entry):
+    """A custom tkinter Label to show a course label
+        :: Editable
+
+    Parameters:
+        parentApp (cls): Parent application for reference.
+        controller (tk.Tk()): tkinter Tk class
+        course (str): the course code
+            DEFAULT VALUE: None, prevents a label without an associated course
+        semester (int): the semester number for attribution on the tkinter page
+            DEFAULT VALUE: 1, ensure it is drawn to a valid location
+        row (int): the row in the semester to be drawn
+            DEFAULT VALUE: 2, ensure that labels don't overlap on other elements (row 0 = page label, row 1 = semester label)
+    """
+
+    def __init__(self, parentPage, controller, course='None', Semester: int = 1, row: int = 2):
         # Entry initialisation
-        tk.Entry.__init__(self,parentPage,font=standardFont)
+        tk.Entry.__init__(self, parentPage, font=standard_font)
         self.parentPage = parentPage
         self.controller = controller
-        
+
         # widget ID
-        self.ID = "courseLabel"
-        
+        self.ID = "CourseLabel"
+
         # standard values
         self.width = 80  # max number of pixels wide
-        self.height = 40  # max number of pixels high 
+        self.height = 40  # max number of pixels high
 
-        # associated course
+        # associated Course
         self.course = course
         if self.course == 'None':
-            self.course = course(self,self.controller)
+            self.course = Course(self, self.controller)
 
-        # course code to display
+        # Course code to display
         self.text = tk.StringVar()
         self.text.set(self.course.code)
 
         # grid location
-        self.row = row + 2 # + 2 because row 0 is reserved for buttons and row 1 is reserved for the semester label
-        self.column = semester 
+        # + 2 because row 0 is reserved for buttons and row 1 is reserved for the Semester label
+        self.row = row + 2
+        self.column = Semester
 
         # widget attributes
-        self.background_colour = '#d9d9d9' #grey
-        self.error_background_colour = '#FFAAAA' # light red
-        self.highlighted_background_colour =  '#a0a0a0' # light grey
-        textColour = '#000000' #black
+        self.background_colour = '#d9d9d9'  # grey
+        self.error_background_colour = '#FFAAAA'  # light red
+        self.highlighted_background_colour = '#a0a0a0'  # light grey
+        textColour = '#000000'  # black
         justify = tk.CENTER
 
         # set tkinter attributes
-        self.config(textvariable=self.text, relief=standardRelief, justify=justify) # items
-        self.colourFromStatus()
-        
-        # bind commands to interactions
-        self.bind('<Enter>',lambda event: self.__enter_handler())
-        self.bind('<Leave>',lambda event: self.__exit_handler())
-        
-        # debug
-        self.bind('<Return>',lambda event: self.__print_handler())
-        
-        # place in grid
-        self.grid(row=self.row,column=self.column,pady=10,padx=10)
+        self.config(textvariable=self.text, relief=standard_relief,
+                    justify=justify)  # items
+        self.label_colour()
 
-    # triggers once mouse enters widget  
-    def __enter_handler(self):
+        # bind commands to interactions
+        self.bind('<Enter>', lambda event: self.__enter_handler())
+        self.bind('<Leave>', lambda event: self.__exit_handler())
+
+        # debug
+        self.bind('<Return>', lambda event: self.__print_handler())
+
+        # place in grid
+        self.grid(row=self.row, column=self.column, pady=10, padx=10)
+
+    def __repr__(self):
+        location = self.grid_info()
+        return f'<CourseLabel: Located:{self.parentPage} at row: {location["row"]}, column: {location["column"]}: Contains: {self.course}>'
+
+    def __enter_handler(self) -> None:
+        """Triggers on mouse enter widget, change background colour and allow edits"""
         # enable the widget and change colour for identification
-        self.config(bg=self.highlighted_background_colour,state=tk.NORMAL) #dark grey 
-    
-    # triggers once mouse leaves widget
-    def __exit_handler(self):
+        self.config(bg=self.highlighted_background_colour,
+                    state=tk.NORMAL)  # dark grey
+
+    def __exit_handler(self) -> None:
+        """Triggers on mouse exit widget, change background colour and disable edits"""
         if len(self.get()) == 8:
             self.course.code = self.get().upper()
+            self.text.set(self.course.code)
         else:
             self.course.code = self.get()
-        self.colourFromStatus()
-    
-    def queryWeb(self):
-        # send query        
-        # update corresponding course object
-        self.course.updateCourseInfo(self.parentPage)
-        
+        self.label_colour()
+
+    def __print_handler(self) -> None:
+        """Triggers on enter being pressed in widget, prints debug information"""
+        # for course in self.parentPage.null_semester.courses:
+        #     print(course)
+        # print(len(self.parentPage.null_semester.courses),end=line_ending)
+
+        for course in self.controller.course_list:
+            end_print(course)
+
+    def label_query_web_request(self) -> None:
+        """Request that the label course object has the information updated"""
+        # send query
+        # update corresponding Course object
+        self.course.update_course_info(self.parentPage)
+
         # disable widget and adjust colour accordingly
-        self.colourFromStatus()
+        self.label_colour()
 
         if self.course.status_code != 200:
             self.course.description = 'Invalid Course Code'
 
-    def colourFromStatus(self):
+    def label_colour(self) -> None:
+        """Set the label colour based on the course status_code"""
         if self.course.status_code == 200:
-            self.config(disabledbackground=self.background_colour,state=tk.DISABLED)
-        else: 
-            self.config(disabledbackground=self.error_background_colour,state=tk.DISABLED) # error colour
+            self.config(disabledbackground=self.background_colour,
+                        state=tk.DISABLED)
+        else:
+            self.config(disabledbackground=self.error_background_colour,
+                        state=tk.DISABLED)  # error colour
 
-    def __print_handler(self):
-        print(self.course.code)
-        print(self.course.prerequisite,end=line_ending)
 
-        # for course in self.parentPage.null_semester.courses:
-        #     print(course.code)
-        # print(len(self.parentPage.null_semester.courses),end=line_ending)
+class ScrollableRegion(tk.Frame):
+    """A custom tkinter textbox that allows scrolling
 
-        for course in self.controller.courseList:
-            endPrint(course.code, course.prerequisite)
+    Parameters:
+        parentApp (cls): Parent application for reference.
+    """
 
-# a custom scrollable region with a title
-class scrollableRegion(tk.Frame):
-    def __init__(self,parentPage):
+    def __init__(self, parentPage):
         self.parentPage = parentPage
         # frame size (char)
-        width=75
-        height=5
-        tk.Frame.__init__(self,parentPage,width=width,height=height)
+        width = 75
+        height = 5
+        tk.Frame.__init__(self, parentPage, width=width, height=height)
         # title
-        self.title = tk.Label(self,relief=standardRelief,text="Description",font=standardFont,background=standardWidgetColour,padx=4,pady=4)
+        self.title = tk.Label(self, relief=standard_relief, text="Description",
+                              font=standard_font, background=standard_widget_colour, padx=4, pady=4)
         self.title.pack(side=tk.TOP)
         # canvas for text
-        canvas = tk.Canvas(self,width=width,height=height)
+        canvas = tk.Canvas(self, width=width, height=height)
         scrollbar = tk.Scrollbar(self, orient="vertical", command=canvas.yview)
-        self.scrollable_frame = tk.Frame(canvas,width=width,height=height)
-        self.scrollable_frame.bind("<Configure>",lambda e: canvas.configure(scrollregion=canvas.bbox("all")) )
+        self.scrollable_frame = tk.Frame(canvas, width=width, height=height)
+        self.scrollable_frame.bind(
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
 
         canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
 
@@ -172,177 +228,253 @@ class scrollableRegion(tk.Frame):
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        self.text = tk.Text(self,width=width,height=height,relief=standardRelief,background=standardWidgetColour,wrap=tk.WORD,font=standardFont)
+        self.text = tk.Text(self, width=width, height=height, relief=standard_relief,
+                            background=standard_widget_colour, wrap=tk.WORD, font=standard_font)
         self.text.pack()
-        self.text.insert(tk.INSERT,"Course Description")
+        self.text.insert(tk.INSERT, "Course Description")
         self.text['state'] = tk.DISABLED
 
-# a custom widget to select which course to show info on
-class courseInfoSelect(tk.OptionMenu):
-    def __init__(self, parentPage,controller):
+    def __repr__(self):
+        location = self.grid_info()
+        return f'<ScrollableRegion: Located:{self.parentPage} at row: {location["row"]}, column: {location["column"]}>'
+
+
+class CourseInfoSelect(tk.OptionMenu):
+    """A custom tkinter option menu that allws the user to select which course they want to see information on
+        :: Editable
+
+    Parameters:
+        parentApp (cls): Parent application for reference.
+        controller (tk.Tk()): tkinter Tk class
+    """
+
+    def __init__(self, parentPage, controller):
         self.parentPage = parentPage
         self.controller = controller
 
         self.frames = self.controller.frames
-        self.keys = self.controller.pageFuncs
+        self.keys = self.controller.page_classes
 
         # by navigating class tree find all options
-        self.options = [label.course for label in self.frames[self.keys[0]].labels if label.ID == 'courseLabel']
-        
+        self.options = [label.course for label in self.frames[self.keys[0]
+                                                              ].labels if label.ID == 'CourseLabel']
+
         # set default value
         self.text = tk.StringVar()
         self.text.set(self.options[0].code)
-        self.text.trace("w",lambda *args: self.parentPage.updatePage())
-        
-        # create widget
-        tk.OptionMenu.__init__(self,self.parentPage,self.text,*[op.code for op in self.options])
+        self.text.trace("w", lambda *args: self.parentPage.update_page())
 
-    def updateCourseInfoSelection(self):
+        # create widget
+        tk.OptionMenu.__init__(self, self.parentPage,
+                               self.text, *[op.code for op in self.options])
+
+    def __repr__(self):
+        location = self.grid_info()
+        return f'<CourseInfoSelection: Located:{self.parentPage} at row: {location["row"]}, column: {location["column"]}: Current Selection: {self.text.get()}>'
+
+    def update_selection_options(self) -> None:
+        """Changes the selectable options in the optionMenu based on courses that are in labels"""
         # delete existing options
         self['menu'].delete(0, 'end')
         # find all options
-        self.options = [label.course for label in self.frames[self.keys[0]].labels if label.ID == 'courseLabel']
+        self.options = [label.course for label in self.frames[self.keys[0]
+                                                              ].labels if label.ID == 'CourseLabel']
         # set default to first
         self.text.set(self.options[0].code)
         # add all options to menu
         for choice in self.options:
-            self['menu'].add_command(label=choice.code, command=tk._setit(self.text, choice.code))
+            self['menu'].add_command(
+                label=choice.code, command=tk._setit(self.text, choice.code))
 
 #########################################
 #               Controls                #
 #########################################
-# group of page navigation buttons
-class pageNavigation(tk.Frame):
-    def __init__(self, parentPage,controller):
-        tk.Frame.__init__(self,parentPage)
+
+
+class PageNavigation(tk.Frame):
+    """A custom tkinter frame that contains the page navigation buttons
+
+    Parameters:
+        parentApp (cls): Parent application for reference.
+        controller (tk.Tk()): tkinter Tk class
+    """
+
+    def __init__(self, parentPage, controller):
+        tk.Frame.__init__(self, parentPage)
         self.parentPage = parentPage
         self.controller = controller
-        self.ID = "pageNavigation"
+        self.ID = "PageNavigation"
 
-        for page in self.controller.pageFuncs:
-            button = tk.Button(self,text=controller.frames[page].pageTitle,font=standardFont,command=lambda destination=page: controller.show_frame(destination),width=15,height=1).pack()
+        for page in self.controller.page_classes:
+            button = tk.Button(self, text=controller.frames[page].page_title, font=standard_font,
+                               command=lambda destination=page: controller.show_frame(destination), width=15, height=1).pack()
 
-# custom widget for adding courses to a semester
-class courseNumControls():
-    # parentPage widget for location to draw, semester object for association
-    def __init__(self, parentPage,controller,semester):
+    def __repr__(self):
+        location = self.grid_info()
+        return f'<PageNavigation: Located:{self.parentPage} at row: {location["row"]}, column: {location["column"]}>'
+
+
+class CourseNumControls():
+    """A custom tkinter wdiget group that allows the user to add or remove courses from a semester display
+
+    Parameters:
+        parentApp (cls): Parent application for reference.
+        controller (tk.Tk()): tkinter Tk class
+        semester (Semester()): the semester to draw the contents of
+    """
+
+    def __init__(self, parentPage, controller, semester):
         # widget ID
-        self.ID = "courseNumControls"
+        self.ID = "CourseNumControls"
 
         # re-attribution
         self.parentPage = parentPage
         self.controller = controller
         self.semester = semester
 
-        # enable or disable the option to remove a course
-        self.downEnable = True
+        # enable or disable the option to remove a Course
+        self.remove_course_label_check = True
         # meaning there is only 1 element in the list and hence don't remove it
-        if self.semester.newCourseLocation() == 1:
-            self.downEnable = False
+        if self.semester.new_course_location == 1:
+            self.remove_course_label_check = False
 
         # grid location
-        row = self.semester.newCourseLocation() + 2 # + 2 because row 0 is reserved for buttons and row 1 is reserved for the semester label 
+        # + 2 because row 0 is reserved for buttons and row 1 is reserved for the Semester label
+        row = self.semester.new_course_location + 2
         column = self.semester.semester_number
-        
+
         # widget initialisation
-        self.up = tk.Button(parentPage,text='+',font=standardFont,command = lambda: self.controllerAddCourse(),width=1)
-        self.up.grid(row=row,column=column,padx=10)
+        self.up = tk.Button(parentPage, text='+', font=standard_font,
+                            command=lambda: self.add_course_controller(), width=1)
+        self.up.grid(row=row, column=column, padx=10)
 
-        if self.downEnable:
-            self.down = tk.Button(parentPage,text='-',font=standardFont,command = lambda: self.controllerPopCourse(),width=1)
-            self.down.grid(row=row+1,column=column,padx=10) 
+        if self.remove_course_label_check:
+            self.down = tk.Button(parentPage, text='-', font=standard_font,
+                                  command=lambda: self.pop_course_controller(), width=1)
+            self.down.grid(row=row+1, column=column, padx=10)
 
-    # command for the add course, calls a method of the associated semester object then updates display
-    def controllerAddCourse(self):
-        self.semester.addCourse(course(self.parentPage,self.controller,parent_semester=self.semester))
-        self.parentPage.generateLabels()
+    def __repr__(self):
+        location = self.grid_info()
+        return f'<CourseNumControls: Located:{self.parentPage} at row: {location["row"]}, column: {location["column"]}>'
 
-    # command for the remove course, calls a method of the associated semester object then updates display
-    def controllerPopCourse(self):      
-        self.semester.popCourse()
-        self.parentPage.generateLabels()
+    def add_course_controller(self) -> None:
+        """Adds a course to the associated semester"""
+        self.semester.add_course(
+            Course(self.parentPage, self.controller, parent_semester=self.semester))
+        self.parentPage.generate_labels()
 
-    # called when the widget pair needs to be destroyed
-    def destroyElements(self):
+    def pop_course_controller(self) -> None:
+        """Removes a course from the associated semester"""
+        self.semester.pop_course()
+        self.parentPage.generate_labels()
+
+    def destroy_elements(self) -> None:
+        """Destroys all tkinter elements associated with the group"""
         self.up.destroy()
-        if self.downEnable:
+        if self.remove_course_label_check:
             self.down.destroy()
 
-# custom widget for adding semesters to the coursePage UI
-class semesterNumControls():
-    # parentPage widget for location to draw, number of semesters for grid location
-    def __init__(self, parentPage,numOfSemesters):
+
+class SemesterNumControls():
+    """A custom tkinter wdiget group that allows the user to add or remove semesters from the course selection page
+
+    Parameters:
+        parentApp (cls): Parent application for reference.
+        controller (tk.Tk()): tkinter Tk class
+        number_of_semesters (int): the number of semesters currently shown
+    """
+
+    def __init__(self, parentPage, number_of_semesters):
         # Widget ID
-        self.ID = "semesterNumControls"
+        self.ID = "SemesterNumControls"
         # re-attribution
         self.parentPage = parentPage
 
-        # enable or disable the option to remove a semester
-        self.downEnable = True
+        # enable or disable the option to remove a Semester
+        self.remove_course_label_check = True
         # meaning there is only 1 element in the list and hence don't remove it
-        if numOfSemesters == 1:
-            self.downEnable = False
-        
+        if number_of_semesters == 1:
+            self.remove_course_label_check = False
+
         # grid location
-        row = 2 # 2 because row 0 is reserved for buttons and row 1 is reserved for the semester label 
-        column = numOfSemesters + 1
+        row = 2  # 2 because row 0 is reserved for buttons and row 1 is reserved for the Semester label
+        column = number_of_semesters + 1
 
         # widget initialisation
-        self.up = tk.Button(parentPage,text='Add Semester',font=standardFont,command = lambda: self.controllerAddSemester(),width=15)
-        self.up.grid(row=row,column=column,padx=10)
+        self.new_semester = tk.Button(parentPage, text='Add Semester', font=standard_font,
+                                      command=lambda: self.add_semester_controller(), width=15)
+        self.new_semester.grid(row=row, column=column, padx=10)
 
-        if self.downEnable:
-            self.down = tk.Button(parentPage,text='Remove Semester',font=standardFont,command = lambda: self.controllerPopSemester(),width=15)
-            self.down.grid(row=row+1,column=column,padx=10) 
+        if self.remove_course_label_check:
+            self.remove_semester = tk.Button(parentPage, text='Remove Semester', font=standard_font,
+                                             command=lambda: self.pop_semester_controller(), width=15)
+            self.remove_semester.grid(row=row+1, column=column, padx=10)
 
-    # command for the add semester, calls a method of the associated parentPage object then updates display
-    def controllerAddSemester(self):
-        self.parentPage.addSemester()
-        self.parentPage.generateLabels()
+    def __repr__(self):
+        location = self.grid_info()
+        return f'<SemesterNumControls: Located:{self.parentPage} at row: {location["row"]}, column: {location["column"]}>'
 
-    # command for the remove semester, calls a method of the associated parentPage object then updates display
-    def controllerPopSemester(self):      
-        self.parentPage.popSemester()
-        self.parentPage.generateLabels()
+    def add_semester_controller(self) -> None:
+        """Adds a semester to the associated page"""
+        self.parentPage.add_semester()
+        self.parentPage.generate_labels()
 
-    # called when the widget pair needs to be destroyed
-    def destroyElements(self):
-        self.up.destroy()
-        if self.downEnable:
-            self.down.destroy()
+    def pop_semester_controller(self) -> None:
+        """Adds a semester to the associated page"""
+        self.parentPage.pop_Semester()
+        self.parentPage.generate_labels()
 
-# a custom widget to show which course is being searched
-class webQuerryStatusBar(tk.Frame):
-    
-    def __init__(self, parentPage,controller):
-        tk.Frame.__init__(self,parentPage)
+    def destroy_elements(self) -> None:
+        """Destroys all tkinter elements associated with the group"""
+        self.new_semester.destroy()
+        if self.remove_course_label_check:
+            self.remove_semester.destroy()
 
-        self.ID = 'webQuerryStatusBar'
+
+class WebQuerryStatusBar(tk.Frame):
+    """A custom tkinter wdiget group that shows the user the status of a web query process and allows them to request an update
+
+    Parameters:
+        parentApp (cls): Parent application for reference.
+        controller (tk.Tk()): tkinter Tk class
+    """
+
+    def __init__(self, parentPage, controller):
+        tk.Frame.__init__(self, parentPage)
+
+        self.ID = 'WebQuerryStatusBar'
         self.parentPage = parentPage
         self.controller = controller
 
         # query the web on items
-        queryWebButton = tk.Button(self,text="Send 2 Web",font=standardFont,command=lambda: self.parentPage.updateWidgetCourseObjects())
-        queryWebButton.pack()
+        web_query_request_button = tk.Button(self, text="Send 2 Web", font=standard_font,
+                                             command=lambda: self.parentPage.update_widget_course_objects())
+        web_query_request_button.pack()
 
-        self.stausText = tk.Label(self)
-        self.stausText.pack()
+        self.staus_text = tk.Label(self)
+        self.staus_text.pack()
 
         self.text = 'Awaiting Request'
-        self.stausText.config(text=self.text,font=standardFont)
-        
+        self.staus_text.config(text=self.text, font=standard_font)
 
-    def updateScraping(self,code):
-        self.text = 'Searching for: {}'.format(code)
-        self.stausText.config(text=self.text,font=standardFont)
+    def __repr__(self):
+        location = self.grid_info()
+        return f'<WebQueryStatusBar: Located:{self.parentPage} at row: {location["row"]}, column: {location["column"]}>'
+
+    def update_scraping_message(self, code: str) -> None:
+        """Updates the WebQuerryStatusBar widget message"""
+        self.text = f'Searching for: {code}'
+        self.staus_text.config(text=self.text, font=standard_font)
         self.controller.update()
 
-    def updateParsing(self,code):
-        self.text = 'Parsing data for: {}'.format(code)
-        self.stausText.config(text=self.text,font=standardFont)
+    def update_parsing_message(self, code: str) -> None:
+        """Updates the WebQuerryStatusBar widget message"""
+        self.text = f'Parsing data for: {code}'
+        self.staus_text.config(text=self.text, font=standard_font)
         self.controller.update()
-    
-    def updateNormal(self):
+
+    def update_waiting_message(self):
+        """Updates the WebQuerryStatusBar widget message"""
         self.text = 'Awaiting Request'
-        self.stausText.config(text=self.text,font=standardFont)
+        self.staus_text.config(text=self.text, font=standard_font)
         self.controller.update()

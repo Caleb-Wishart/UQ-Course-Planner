@@ -8,10 +8,14 @@ from collections import deque
 #########################################
 #         MISC GLOBAL VARIABLES         #
 #########################################
+#### USER SETTINGS ####
 
 #### Q.O.L variables ####
 line_ending = '\n------------------------\n'
 # taken to subjectClasses -> customWidgets -> main
+
+#### APP DATA ####
+Appversion = '0.0.1'
 
 #### LOGGING ####
 # verbose_output forces error_logs ON when True
@@ -30,19 +34,27 @@ year = '2020'
 #### USER SETTINGS ####
 recursive_searching = True
 
-course_per_new_semester = 1
+Course_per_new_Semester = 1
 
 #########################################
 #        CUSTOM GLOBAL FUNCTIONS        #
 #########################################
-def endPrint(*args,**kwargs):
-    print(*args,**kwargs,end=line_ending)
+
+
+def end_print(*args, **kwargs):
+    """A custom print function that has a seperator"""
+    print(*args, **kwargs, end=line_ending)
 
 # *args are values, **kwargs are print options
-def verbosePrint(*args,**kwargs):
-    if verbose_output:
-        endPrint(*args,**kwargs) 
 
-def errorPrint(*args, **kargs):
+
+def verbose_print(*args, **kwargs):
+    """A custom print function used for selective output"""
+    if verbose_output:
+        end_print(*args, **kwargs)
+
+
+def error_print(*args, **kargs):
+    """A custom print function used for selective output"""
     if error_logs or verbose_output:
-        endPrint(*args,**kargs)  
+        end_print(*args, **kargs)
