@@ -108,12 +108,12 @@ class LogicParser():
 
             else:
                 # failsafe
-                print('Sorry something went wrong in the logical_or_branch, below are variable values for debugging',
-                      end=line_ending, file=stderr)
-                print('Final Options:  ', self.final_options,
-                      end=line_ending, file=stderr)
-                print('OR Work array ended at  ', work_array,
-                      end=line_ending, file=stderr)
+                error_print('Sorry something went wrong in the logical_or_branch, below are variable values for debugging',
+                            end=line_ending, file=stderr)
+                error_print('Final Options:  ', self.final_options,
+                            end=line_ending, file=stderr)
+                error_print('OR Work array ended at  ', work_array,
+                            end=line_ending, file=stderr)
                 exit()
         # set the master list to be the different branches of the process completed above
         self.final_options = [item for item in work_final_options]
@@ -216,7 +216,7 @@ class WebsiteScraper():
             code = inp[code_location:code_location+4]
             inp = inp[:location+1] + code + inp[location+1:]
         # See COMS3000 for example
-        if 'F OR' in inp:
+        if 'FOR' in inp:
             srch = re_for_code.findall(inp)
             if re_course_code.search(inp).group(0) == code:
                 inp = srch[0][0]

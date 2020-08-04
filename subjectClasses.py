@@ -220,7 +220,6 @@ class Course():
                     if recursive_searching:
                         course.update_course_info(widgit_page_ID)
                     # for each course_code in the course prerequisites
-                    # for code in course.prerequisite: # this code can be uncommented when creating a system to deal with alternate options
                     for code in set([code for item in course.prerequisite for code in item.split(',')]):
                         current_course = self.course_from_code(code)
                         if current_course != None:
@@ -251,11 +250,18 @@ class Course():
                     for prerequisite_item in [self.course_from_code(code) for code in set([code for item in course_item.prerequisite for code in item.split(',')])]:
                         items_to_remove.append(
                             (position + 1, prerequisite_item))
+            # remove cases where item appears multiple times in the first layer it appears
+            for course_item in set(tree_layer):
+                if course_item in label_layer:
+                    for i in range(tree_layer.count(course_item)-1):
+                        items_to_remove.append(
+                            (position, course_item))
 
         for (pos, course) in items_to_remove:
             self.course_prerequisite_tree[pos].remove(course)
 
         self.course_prerequisite_tree.reverse()
+
 
     def course_from_code(self, code: str):
         """Get a course object from the master list from a code
