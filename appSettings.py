@@ -11,7 +11,8 @@ from collections import deque
 #### USER SETTINGS ####
 
 #### Q.O.L variables ####
-line_ending = '\n------------------------\n'
+line_ending = '\n------------------------------------------------\n'
+line_segment = '------------------------------------------------'
 # taken to subjectClasses -> customWidgets -> main
 
 #### APP DATA ####
@@ -43,7 +44,10 @@ Course_per_new_Semester = 1
 
 def end_print(*args, **kwargs):
     """A custom print function that has a seperator"""
-    print(*args, **kwargs, end=line_ending)
+    if 'end' in kwargs:
+        print(*args, **kwargs)
+    else:
+        print(*args, **kwargs, end=line_ending)
 
 # *args are values, **kwargs are print options
 

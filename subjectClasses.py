@@ -214,14 +214,20 @@ class Course():
             # start at the top, get the nest level and loop through, ends when no prereqs found
             for nest_level, prerequisite_group in enumerate(self.course_prerequisite_tree):
                 self.course_prerequisite_tree.append([])
+                # for each course in a layer
                 for course in prerequisite_group:
+                    # update prerequisites if recursive searching
                     if recursive_searching:
                         course.update_course_info(widgit_page_ID)
-                    # for code in Course.prerequisite: # this code can be uncommented when creating a system to deal with alternate options
+                    # for each course_code in the course prerequisites
+                    # for code in course.prerequisite: # this code can be uncommented when creating a system to deal with alternate options
                     for code in set([code for item in course.prerequisite for code in item.split(',')]):
-                        if self.course_from_code(code) != None:
+                        current_course = self.course_from_code(code)
+                        if current_course != None:
+                            # append to the next level down
                             self.course_prerequisite_tree[nest_level +
-                                                          1].append(self.course_from_code(code))
+                                                          1].append(current_course)
+
                 # if we haven't added any new Courses
                 if len(self.course_prerequisite_tree[nest_level+1]) == 0:
                     break
@@ -230,6 +236,26 @@ class Course():
         # add self to the left
         self.course_prerequisite_tree = deque(self.course_prerequisite_tree)
         self.course_prerequisite_tree.appendleft([self])
+        # remove excess items
+        layers = [list(set([course.code for course in column]))
+                  for column in self.course_prerequisite_tree]
+        item_layers = [
+            [self.course_from_code(item) for item in layer if item not in
+                [items for layer in layers[position+1:] for items in layer]
+             ] for position, layer in enumerate(layers)
+        ]
+        items_to_remove = []
+        for position, (tree_layer, label_layer) in enumerate(zip(self.course_prerequisite_tree, item_layers)):
+            for course_item in tree_layer:
+                if course_item not in label_layer:
+                    for prerequisite_item in [self.course_from_code(code) for code in set([code for item in course_item.prerequisite for code in item.split(',')])]:
+                        items_to_remove.append(
+                            (position + 1, prerequisite_item))
+
+        for (pos, course) in items_to_remove:
+            self.course_prerequisite_tree[pos].remove(course)
+
+        self.course_prerequisite_tree.reverse()
 
     def course_from_code(self, code: str):
         """Get a course object from the master list from a code

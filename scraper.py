@@ -78,7 +78,7 @@ class LogicParser():
                 work_array.remove(working_item)
 
             # if there is no further parentheses_breakdown item add it to the list (handles exception where the prereq is a not a couse-code unit)
-            elif working_item.find('AND') == -1 and working_item.find('OR') == -1:
+            elif working_item.find(' AND ') == -1 and working_item.find(' OR ') == -1:
                 if len(work_final_options[num]) == 0:
                     work_final_options[num] = working_item
                 else:
@@ -91,7 +91,7 @@ class LogicParser():
             # if the working item contains a nested AND function but not an OR function try breaking it down,
             # if there are further nested entries throw an error as I am too lazy to try and get it to sort out the rest atm,
             # but if not add both to the end of the list
-            elif working_item.find('AND') != -1:
+            elif working_item.find(' AND ') != -1:
 
                 work_array_and = self.parentheses_breakdown(working_item[1:-1])
                 for item in work_array_and:
@@ -140,7 +140,7 @@ class LogicParser():
                     # remove item from process queue
                     work_array.remove(working_item)
             # if the current item contains an OR logical operator send it to the OR function to process
-            elif working_item.find('OR') != -1:
+            elif working_item.find(' OR ') != -1:
                 component = re.split(' OR ', working_item)
                 self.logical_or_branch(component)
                 # once processed remove item from queue
@@ -187,9 +187,13 @@ class WebsiteScraper():
             inp (str): input to fix
             code (str): code of a course to get prerequisites for
         """
-        re_malformed_operator_left = re.compile(r'\w(AND|OR)')
-        re_malformed_operator_right = re.compile(r'(AND|OR)\w')
+        re_malformed_operator_left = re.compile(r'([A-Z]{4}\d{4})(AND|OR)')
+        re_malformed_operator_right = re.compile(r'(AND|OR)([A-Z]{4}\d{4})')
+        re_missing_course_code = re.compile(
+            r'([A-Z]{4}\d{4}) (AND|OR) (\d{4})')
+        re_only_course_number = re.compile(r'( \d{4})')
         re_course_code = re.compile(r'[A-Z]{4}\d{4}')
+        re_for_code = re.compile(r'((?<=(: ))(.*?)(?=;|$))', re.MULTILINE)
 
         inp = inp.upper()
         inp = re.sub(r',', ' AND', inp)  # replacing the ',' with 'AND'
@@ -205,11 +209,15 @@ class WebsiteScraper():
                 inp = inp[:location+3] + ' ' + inp[location+3:]
             else:
                 inp = inp[:location+2] + ' ' + inp[location+2:]
-
+        # comp 2303 example
+        while re_missing_course_code.search(inp):
+            location = re_only_course_number.search(inp).start()
+            code_location = re_missing_course_code.search(inp).start()
+            code = inp[code_location:code_location+4]
+            inp = inp[:location+1] + code + inp[location+1:]
         # See COMS3000 for example
-        edge_case1 = re.compile(r'((?<=(: ))(.*?)(?=;|$))', re.MULTILINE)
         if 'F OR' in inp:
-            srch = edge_case1.findall(inp)
+            srch = re_for_code.findall(inp)
             if re_course_code.search(inp).group(0) == code:
                 inp = srch[0][0]
             else:

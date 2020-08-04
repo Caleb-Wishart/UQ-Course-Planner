@@ -6,7 +6,7 @@ from subjectClasses import *
 
 # 1500+ lines and counting (across files)
 
-# TODO
+# TODO todo list
 """
 intermediary node lines
 refactor instance variables that should be class variables
@@ -174,7 +174,7 @@ class CourseInfoPage(DefaultFrame):
         self.description.grid(row=1, column=2)
 
         self.prerequisite_map = CourseMap(self, self.controller)
-        self.prerequisite_map.grid(row=2, column=2, pady=10)
+        self.prerequisite_map.grid(row=2, column=1, columnspan=2, pady=10)
 
         # status on the web querry
         self.web_query_status = WebQuerryStatusBar(self, self.controller)
@@ -257,12 +257,16 @@ class CoursePlannerAssistantApp(tk.Tk):
         # clear list
         self.course_list[self.course_list.index(searchCode)].prereq_for.clear()
         # add to list
-        print(f'searching for {searchCode.code} in Course prerequisites')
+        verbose_print(
+            f'\t{line_segment}\n\tsearching for {searchCode.code} in Course prerequisites', end='\n')
         for course in self.course_list:
             if searchCode.code in set([code for item in course.prerequisite for code in item.split(',')]):
                 self.course_list[self.course_list.index(
                     searchCode)].prereq_for.append(course)
-                print(f'added {searchCode.code} to {course.code} prerequisite')
+                verbose_print(
+                    f'\t\tadded {searchCode.code} to {course.code} prerequisite', end='\n')
+        verbose_print(
+            f'\tFinished searching for {searchCode.code} in Course prerequisites', end=f'\n\t{line_segment}\n')
 
 ##############################################  WORKSPACE   ##############################################
 
@@ -294,9 +298,12 @@ class CourseMap(tk.Frame):
         self.tag_text_item = 'textItem'
         self.tag_node = 'textNode'
         self.tag_arrow = 'arrow'
+        self.tag_arrow_node = 'arrow_node'
+        self.tag_column = 'column'
+        self.tag_free = 'free'
 
-        self.width = 500
-        self.height = 200
+        self.width = 750
+        self.height = 500
 
         self.box_height = 30
         self.box_width = self.box_height*5/2
@@ -307,14 +314,13 @@ class CourseMap(tk.Frame):
         self.title.pack(side=tk.TOP)
         # canvas
         self.canvas = tk.Canvas(self, bg=standard_widget_colour,
-                                relief=standard_relief, width=self.width, height=self.height)
+                                relief=standard_relief, width=self.width, height=self.height, highlightthickness=1, highlightbackground="black")
         self.canvas.pack()
 
     def __repr__(self):
         location = self.grid_info()
         return f'<CourseMapWidget: Located:{self.parentPage} at row: {location["row"]}, column: {location["column"]}>'
 
-    # TODO
     def updateCanvas(self, code: str) -> None:
         """delete all tkinter items on the canvas and regenerate
 
@@ -334,24 +340,34 @@ class CourseMap(tk.Frame):
             # find out how many Courses this item is a prerequisite for
             course.map_preprequisite_tree(self.parentPage)
             maplist = course.course_prerequisite_tree
-            maplist.reverse()
             numCol = len(maplist)
             # labels
+            verbose_print('Starting label drawing process', end='\n')
             for colLevel, subgroup in enumerate(maplist, 1):
                 for rowLevel, cor in enumerate(subgroup, 1):
                     numRows = len(subgroup)
                     self.draw_Label(cor.code, numCol, numRows,
                                     colLevel, rowLevel)
+            verbose_print('Label drawing process finished')
             maplist.reverse()
             # arrows
+            verbose_print('Starting arrow drawing process', end='\n')
+            searched_items = []
             for colLevel, subgroup in enumerate(maplist, 1):
                 for rowLevel, cor in enumerate(subgroup, 1):
-                    # search for prerequisites
-                    self.controller.tally_prerequisites(cor)
-                    end_print(
-                        f'course {cor.code} is prerequisite for {cor.prereq_for}')
-                    for item in cor.prereq_for:
-                        self.draw_Line(cor.code, item.code)
+                    if cor not in searched_items:
+                        searched_items.append(cor)
+                        # search for prerequisites
+                        self.controller.tally_prerequisites(cor)
+                        verbose_print(
+                            f'\tcourse {cor.code} is prerequisite for {" and ".join([course.code for course in cor.prereq_for]) if not len(cor.prereq_for) else "nothing"}', end='\n')
+                        for item in cor.prereq_for:
+                            self.draw_Line(cor.code, item.code)
+            del searched_items
+            verbose_print('Arrow drawing process finished')
+        else:
+            error_print("more then one code")
+            error_print(course)
 
     def draw_Label(self, text: str, numCol: int, numRow: int, col: int, row: int) -> None:
         """Draws a custom label on the tkinter canvas at the specified position
@@ -363,34 +379,49 @@ class CourseMap(tk.Frame):
             col (int): column position
             row (int): row position
         """
+        # force round up
+        numCol += 0.1
+        numRow += 0.1
+        # scaling of a box_width
+        scale = 0.4
 
-        if numCol == 1:
-            x = (self.width) * 0.5 - self.box_width/2
+        # remainder 1
+        if numCol % 2:
+            x = (self.width * 0.5) + -(self.box_width * scale) * \
+                (1 + (round(numCol/2) - col) * 4)
+        # remainder 0
         else:
-            x = (self.width) * 0.5 + self.box_width * 1.5 * \
-                (-numCol + 1 + col) - self.box_width/2
-        if numRow == 1:
-            y = (self.height) * 0.5 - self.box_height/2
+            x = (self.width * 0.5) + -(self.box_width * scale) * \
+                (3 + (round(numCol/2) - col) * 4)
+        # remainder 1
+        if numRow % 2:
+            y = (self.height * 0.5) + -(self.box_height * scale) * \
+                (1 + (round(numRow/2) - row) * 4)
+        # remainder 0
         else:
-            y = (self.height) * 0.5 + self.box_height * \
-                1.5 * (-numRow + 1 + row) - self.box_height/2
-        # tryu find the item with the tag code + textBox
+            y = (self.height * 0.5) + -(self.box_height * scale) * \
+                (3 + (round(numCol/2) - row) * 4)
+
+        # try find the item with the tag code + textBox
         try:
             item1 = self.canvas.find_withtag(text+self.tag_text_box)[0]
-            verbose_print(f'{text} already exists, creating node')
+            verbose_print(f'\t{text} already exists, creating node', end='\n')
             x += self.box_width/2
             y += self.box_height/2
             self.canvas.create_rectangle(
-                x, y, x, y, fill='black', tags=text+self.tag_node)
+                x, y, x, y, fill='black', tags=(text+self.tag_node, self.tag_column+str(col), self.tag_free))
+            # debug feature
+            self.canvas.create_text(x, y,
+                                    text=text, font=standard_font, tags=(text+self.tag_text_item, self.tag_column+str(col)))
         except:
             # else make box and text item
 
             self.canvas.create_rectangle(
-                x, y, x+self.box_width, y+self.box_height, fill='light blue', tags=text+self.tag_text_box)
+                x, y, x+self.box_width, y+self.box_height, fill='light blue', tags=(text+self.tag_text_box, self.tag_column+str(col)))
             self.canvas.create_text(x+self.box_width/2, y+self.box_height/2,
-                                    text=text, font=standard_font, tags=text+self.tag_text_item)
+                                    text=text, font=standard_font, tags=(text+self.tag_text_item, self.tag_column+str(col)))
             verbose_print(
-                f'drew {text} at of row {row}, column {col},x: {x},y:{y}, numCol: {numCol}, numRow: {numRow}')
+                f'\tdrew {text} at of row {row}, column {col},x: {x},y:{y}, numCol: {numCol}, numRow: {numRow}', end='\n')
 
     def draw_Line(self, code1: str, code2: str) -> None:
         """Draws a custom arrow on the tkinter canvas at the specified position
@@ -405,7 +436,8 @@ class CourseMap(tk.Frame):
         try:
             item1 = self.canvas.find_withtag(code1+self.tag_arrow+code2)[0]
             if item1 != None:  # i.e. exists
-                verbose_print(f'Arrow from {code1} to {code2} already exists')
+                verbose_print(
+                    f'\tArrow from {code1} to {code2} already exists', end='\n')
                 return None
         except:
             # item doesn't exist
@@ -416,18 +448,53 @@ class CourseMap(tk.Frame):
             item2 = self.canvas.find_withtag(code2+self.tag_text_box)[0]
         except:
             # if item does not exist return
-            verbose_print(f'{code1} or {code2} Item does not exist')
+            verbose_print(
+                f'\t{code1} or {code2} Item does not exist', end='\n')
             return None
 
         x1, y1, x2, y2 = self.canvas.coords(item1)
         a1, b1, a2, b2 = self.canvas.coords(item2)
 
+        c1 = int([tag for tag in self.canvas.gettags(
+            item1) if tag.startswith(self.tag_column)][0][-1])
+        c2 = int([tag for tag in self.canvas.gettags(
+            item2) if tag.startswith(self.tag_column)][0][-1])
         box_width = x2-x1
         box_height = y2-y1
+        # if in neighbouring columns
+        if c1 + 1 == c2:
+            self.canvas.create_line((x2, y1+box_height/2), (a1, b1+box_height/2),
+                                    fill="red", width=2, arrow=tk.LAST, tags=code1+self.tag_arrow+code2)
+            verbose_print(f'\tLine drawn from {code1} to {code2}', end='\n')
 
-        self.canvas.create_line((x2, y1+box_height/2), (a1, b1+box_height/2),
-                                fill="red", width=2, arrow=tk.LAST, tags=code1+self.tag_arrow+code2)
-        verbose_print(f'Line drawn from {code1} to {code2}')
+        else:
+            # find all relevent nodes
+            nodes = [node for node in self.canvas.find_withtag(
+                code1+self.tag_node) if self.tag_free in self.canvas.gettags(node)]
+            # for each intermediate node
+            for num in range(1, c2-c1):
+                # find the column position
+                pos = str(c1+num)
+                # find all nodes in that column
+                column_nodes = self.canvas.find_withtag(
+                    self.tag_column+pos)
+                # find the intersecting node (column + correct tag)
+                intersection_node = [
+                    itemID for itemID in nodes if itemID in column_nodes][0]
+                # get coords of node (right item)
+                n1, m1, n2, m2 = self.canvas.coords(intersection_node)
+                self.canvas.dtag(intersection_node, self.tag_free)
+                # draw line from left item to right item
+                self.canvas.create_line(
+                    # + (y2 - y1)/2 in case coming from text, if not its + 0
+                    (x2, y1+(y2-y1)/2), (n1, m1+(m2-m1)/2), fill="red", width=2, tags=code1+self.tag_arrow_node+pos)
+                # update left item position to current right item
+                x1, y1, x2, y2 = n1, m1, n2, m2
+
+            self.canvas.create_line((x2, y1+(y2-y1)/2), (a1, b1+box_height/2),
+                                    fill="red", width=2, arrow=tk.LAST, tags=code1+self.tag_arrow+code2)
+            verbose_print(
+                f'\tLine drawn from {code1} to {code2} through {c2-c1-1} nodes', end='\n')
 
 
 ##############################################  WORKSPACE   ##############################################

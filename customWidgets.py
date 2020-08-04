@@ -174,12 +174,21 @@ class CourseLabel(tk.Entry):
 
         for course in self.controller.course_list:
             end_print(course)
+            end_print(course.course_prerequisite_tree)
 
     def label_query_web_request(self) -> None:
         """Request that the label course object has the information updated"""
-        # send query
-        # update corresponding Course object
-        self.course.update_course_info(self.parentPage)
+        # check if item exists or not
+        if self.course.code not in [course.code for course in self.controller.course_list]:
+            # update corresponding Course object
+            self.course.update_course_info(self.parentPage)
+            verbose_print(
+                f"Requested an update for course code {self.course.code}")
+        else:
+            self.course = [
+                course for course in self.controller.course_list if course.code == self.course.code][0]
+            verbose_print(
+                f"Updated {self.course.code} to an existing item")
 
         # disable widget and adjust colour accordingly
         self.label_colour()
