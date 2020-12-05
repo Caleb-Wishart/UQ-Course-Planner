@@ -1,5 +1,5 @@
-from scraper import *
-from appSettings import *
+from .scraper import *
+from .appSettings import *
 
 #########################################
 #    Classes for real world concepts    #
@@ -261,7 +261,6 @@ class Course():
             self.course_prerequisite_tree[pos].remove(course)
 
         self.course_prerequisite_tree.reverse()
-
 
     def course_from_code(self, code: str):
         """Get a course object from the master list from a code

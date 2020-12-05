@@ -1,8 +1,9 @@
 import tkinter as tk
 
-from customWidgets import *
-from scraper import *
-from subjectClasses import *
+from .customWidgets import *
+from .scraper import *
+from .subjectClasses import *
+from .appSettings import *
 
 # 1500+ lines and counting (across files)
 

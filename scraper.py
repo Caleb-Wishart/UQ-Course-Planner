@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 from requests import get as rget
 import re
 
-from appSettings import *
+from .appSettings import *
 
 #########################################
 #       scraper & parsing functions     #
@@ -209,7 +209,7 @@ class WebsiteScraper():
                 inp = inp[:location+3] + ' ' + inp[location+3:]
             else:
                 inp = inp[:location+2] + ' ' + inp[location+2:]
-        # comp 2303 example
+        # See COMP2303 example
         while re_missing_course_code.search(inp):
             location = re_only_course_number.search(inp).start()
             code_location = re_missing_course_code.search(inp).start()

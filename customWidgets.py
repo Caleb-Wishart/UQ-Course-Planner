@@ -1,7 +1,7 @@
 import tkinter as tk
 
-from subjectClasses import *
-from appSettings import *
+from .subjectClasses import *
+from .appSettings import *
 #########################################
 #         MISC GLOBAL VARIABLES         #
 #########################################

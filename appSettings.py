@@ -50,6 +50,7 @@ def end_print(*args, **kwargs):
         print(*args, **kwargs, end=line_ending)
 
 # *args are values, **kwargs are print options
+#  white, black, red, blue, green, yellow, magenta, and cyan
 
 
 def verbose_print(*args, **kwargs):
