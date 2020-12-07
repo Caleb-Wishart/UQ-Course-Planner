@@ -1,5 +1,5 @@
-from .scraper import *
-from .appSettings import *
+from scraper import *
+from appSettings import *
 
 #########################################
 #    Classes for real world concepts    #

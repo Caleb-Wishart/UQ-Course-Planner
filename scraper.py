@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 from requests import get as rget
 import re
 
-from .appSettings import *
+from appSettings import *
 
 #########################################
 #       scraper & parsing functions     #
