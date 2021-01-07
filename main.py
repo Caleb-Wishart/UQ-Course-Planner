@@ -1,10 +1,10 @@
 import tkinter as tk
-from tkinter.constants import BOTH
+import threading
 
-from customWidgets import *
-from scraper import *
-from subjectClasses import *
-from appSettings import *
+from uqCoursePlanner.subjectClasses import Course
+
+from uqCoursePlanner.customWidgets import CourseCanvas, DefaultFrame, Controls, PageNavigation
+from uqCoursePlanner.appSettings import Appversion
 
 # TODO todo list
 """
@@ -33,15 +33,20 @@ class MapPage(DefaultFrame):
         parentApp (cls): Parent application for reference.
         controller (tk.Tk()): tkinter Tk class
     """
-    colour = 'green'
+    colour = "green"
 
-    def __init__(self, parent, head):
+    def __init__(self, master, head):
         # Frame Initialisation
         super(self.__class__, self).__init__(
-            parent, head, 'Course Information')
+            master, head, "Course Prerequisites")
+
+        self.widgets[CourseCanvas] = CourseCanvas(
+            self, head, bg=self.colour, bd=0, highlightthickness=0, relief=tk.FLAT, confine=True)
+        self.widgets[CourseCanvas].pack(
+            fill=tk.BOTH, expand=True, side=tk.LEFT)
 
     def __repr__(self) -> str:
-        return f'<MapPage>'
+        return f"<MapPage>"
 
 
 class Page2(DefaultFrame):
@@ -53,15 +58,15 @@ class Page2(DefaultFrame):
         parentApp (cls): Parent application for reference.
         controller (tk.Tk()): tkinter Tk class
     """
-    colour = 'purple'
+    colour = "purple"
 
-    def __init__(self, parent, head):
+    def __init__(self, master, head):
         # Frame Initialisation
         super(self.__class__, self).__init__(
-            parent, head, 'Page 2')
+            master, head, "Page 2")
 
     def __repr__(self) -> str:
-        return f'<Page2>'
+        return f"<Page2>"
 #########################################
 #               MAIN APP                #
 #########################################
@@ -69,7 +74,6 @@ class Page2(DefaultFrame):
 
 class Application(tk.Tk):
     """Application Wrapper
-
         A class that inherits from tk.Tk() to house tkinter objects
     """
     # standard openning
@@ -80,25 +84,21 @@ class Application(tk.Tk):
     def __init__(self, *args, **kwargs):
         # Tk initiatilsation
         tk.Tk.__init__(self, *args, **kwargs)
-
         # Window Managment
-        self.title(f'UQ Course Planner Assistant: {Appversion}')
-        self.geometry(f'{self.width}x{self.height}')
+        self.title(f"UQ Course Planner Assistant: {Appversion}")
+        self.geometry(f"{self.width}x{self.height}")
         # self.resizable(0,0)
 
         # the master container for the program
         container = tk.Frame(self)
         container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        # setting defaults
-        # container.grid_rowconfigure(0, weight=1)
-        # container.grid_columnconfigure(0, weight=1)
-
         self.frames = {}
         self.pages = [MapPage, Page2]
         self.currentPage = None
 
-        self.course_list = []
+        self.courses = {}
+        self.coursesLock = threading.Lock()
 
         # create the frames
         for page in self.pages:
@@ -111,8 +111,7 @@ class Application(tk.Tk):
         self.nav = PageNavigation(container, self)
         self.nav.grid(row=0, column=1, sticky=tk.NSEW)
 
-        self.controls = tk.Frame(
-            master=container, bg="#b8b8b8", highlightbackground="black", highlightthickness=1)
+        self.controls = Controls(container, self)
         self.controls.grid(row=1, column=0, sticky=tk.NSEW)
         for page in self.pages:
             self.frames[page].draw_default_widgets(page.colour)
@@ -131,8 +130,12 @@ class Application(tk.Tk):
         """brings the specified frame to the front"""
         frame = self.frames[page]
         frame.tkraise()
-        self.currentPage = page
+        frame.refresh()
         self.nav.update()
+        self.currentPage = page
+
+    def page_refresh(self) -> None:
+        self.frames[self.currentPage].refresh()
 
 ##############################################  WORKSPACE   ##############################################
 

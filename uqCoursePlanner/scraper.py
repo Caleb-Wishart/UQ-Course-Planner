@@ -1,12 +1,18 @@
+
+from ast import Str
+from typing import Any, List, Tuple
 from bs4 import BeautifulSoup
+import bs4
 from requests import get as rget
 import re
 
-from appSettings import *
+from .appSettings import *
 
 #########################################
 #       scraper & parsing functions     #
 #########################################
+
+# TODO rework this class
 
 
 class LogicParser():
@@ -18,12 +24,12 @@ class LogicParser():
     Parameters:
         None
     """
+    # regex for matching Course codes
+    re_course_code = re.compile(r'[A-Z]{4}\d{4}')
+    # regex for matching logical operators
+    re_non_course_code = re.compile(r'((and)|(or)|(\()|(\)))')
 
     def __init__(self):
-        # regex for matching Course codes
-        self.re_course_code = re.compile(r'[A-Z]{4}\d{4}')
-        # regex for matching logical operators
-        self.re_non_course_code = re.compile(r'((and)|(or)|(\()|(\)))')
         # the master list that holds the result
         self.final_options = ['']
 
@@ -156,7 +162,7 @@ class LogicParser():
                 exit()
 
     # to call outside of the class
-    def prerequisite_combinations_list(self, content: str) -> None:
+    def prerequisite_combinations_list(self, content: str) -> List[str]:
         """ find the prerequsite combinations available for a given course from website data
 
         Parameters:
@@ -164,6 +170,8 @@ class LogicParser():
         """
         # sets the final result list to empty as a reset as __init__ only creates variable and doesn't reset
         self.final_options = ['']
+        if content is None:
+            return self.final_options
         # starts the process
         self.logical_seperator(self.parentheses_breakdown(content))
         return self.final_options
@@ -181,28 +189,23 @@ class WebsiteScraper():
     def __repr__(self):
         return f'<Website Scraper>'
 
-    def input_validation(self, inp: str, code: str) -> None:
+    @staticmethod
+    def content_validation(inp: str, code: str) -> str:
         """validate the input to a logic parser, handles ambiguity with logical operators and typos
         Parameters:
             inp (str): input to fix
-            code (str): code of a course to get prerequisites for
         """
-        re_malformed_operator_left = re.compile(r'([A-Z]{4}\d{4})(AND|OR)')
-        re_malformed_operator_right = re.compile(r'(AND|OR)([A-Z]{4}\d{4})')
-        re_missing_course_code = re.compile(
-            r'([A-Z]{4}\d{4}) (AND|OR) (\d{4})')
-        re_only_course_number = re.compile(r'( \d{4})')
-        re_course_code = re.compile(r'[A-Z]{4}\d{4}')
-        re_for_code = re.compile(r'((?<=(: ))(.*?)(?=;|$))', re.MULTILINE)
-
+        # uppercase
         inp = inp.upper()
         inp = re.sub(r',', ' AND', inp)  # replacing the ',' with 'AND'
         inp = re.sub(r'\+', 'AND', inp)  # replacing the '+' with 'AND'
         # add missing spaces for logical operators
+        re_malformed_operator_left = re.compile(r'([A-Z]{4}\d{4})(AND|OR)')
         while re_malformed_operator_left.search(inp):
             location = re_malformed_operator_left.search(inp).start()
             inp = inp[:location+1] + ' ' + inp[location+1:]
 
+        re_malformed_operator_right = re.compile(r'(AND|OR)([A-Z]{4}\d{4})')
         while re_malformed_operator_right.search(inp):
             location = re_malformed_operator_right.search(inp).start()
             if inp[location] == 'A':
@@ -210,12 +213,17 @@ class WebsiteScraper():
             else:
                 inp = inp[:location+2] + ' ' + inp[location+2:]
         # See COMP2303 example
+        re_missing_course_code = re.compile(
+            r'([A-Z]{4}\d{4}) (AND|OR) (\d{4})')
+        re_only_course_number = re.compile(r'( \d{4})')
         while re_missing_course_code.search(inp):
             location = re_only_course_number.search(inp).start()
             code_location = re_missing_course_code.search(inp).start()
             code = inp[code_location:code_location+4]
             inp = inp[:location+1] + code + inp[location+1:]
         # See COMS3000 for example
+        re_for_code = re.compile(r'((?<=(: ))(.*?)(?=;|$))', re.MULTILINE)
+        re_course_code = re.compile(r'[A-Z]{4}\d{4}(?!.)')
         if 'FOR' in inp:
             srch = re_for_code.findall(inp)
             if re_course_code.search(inp).group(0) == code:
@@ -225,7 +233,8 @@ class WebsiteScraper():
 
         return inp
 
-    def fetch_HTML(self, course_code: str, search_year: str = year):
+    @staticmethod
+    def fetch_HTML(course_code: str, search_year: str = year) -> Tuple[Any, int]:
         """ scrape the UQ course page sepcified with the course_code and search_year and return a BS4 object
         Parameters:
             course_code (str): search code
@@ -244,6 +253,14 @@ class WebsiteScraper():
         try:
             r = rget(url, headers=headers)
             soup = BeautifulSoup(r.text, 'html.parser')
-            return soup
+            return soup, r.status_code
         except:
             error_print('Something went wrong while searching the web')
+            return None, 404
+
+    @staticmethod
+    def get_Field_Contents(soup: Any, field: str, code: str):
+        try:
+            return WebsiteScraper.content_validation(soup.find(id=field).string, code)
+        except:
+            return None

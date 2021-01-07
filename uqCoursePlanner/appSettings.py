@@ -11,12 +11,12 @@ from collections import deque
 #### USER SETTINGS ####
 
 #### Q.O.L variables ####
-line_ending = '\n------------------------------------------------\n'
-line_segment = '------------------------------------------------'
+line_ending = "\n------------------------------------------------\n"
+line_segment = "------------------------------------------------"
 # taken to subjectClasses -> customWidgets -> main
 
 #### APP DATA ####
-Appversion = '0.0.1'
+Appversion = "0.0.1"
 
 #### LOGGING ####
 # verbose_output forces error_logs ON when True
@@ -27,15 +27,17 @@ error_logs = True
 ##### SCRAPER SETTINGS ####
 
 # email for bug reports / requests
-email = 'cw.online.acc@outlook.com'
+email = "cw.online.acc@outlook.com"
 
 # year to look for in URL
-year = '2020'
+year = "2020"
 
 #### USER SETTINGS ####
 recursive_searching = True
 
 Course_per_new_Semester = 1
+
+default_description = "Course Description Placeholder Text\nTry pressing Send 2 Web on the Course Search page\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7"
 
 #########################################
 #        CUSTOM GLOBAL FUNCTIONS        #
@@ -44,7 +46,7 @@ Course_per_new_Semester = 1
 
 def end_print(*args, **kwargs):
     """A custom print function that has a seperator"""
-    if 'end' in kwargs:
+    if "end" in kwargs:
         print(*args, **kwargs)
     else:
         print(*args, **kwargs, end=line_ending)
