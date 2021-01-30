@@ -36,13 +36,19 @@ class PageNavigation(tk.Frame):
         self.widgets = {}
 
         for page in self.head.pages:
-            button = tk.Button(master=self, text=self.head.frames[page].pageTitle, font=standardFont,
-                               command=lambda destination=page: self.head.show_frame(destination), width=15, height=1, relief=standardRelief)
+            button = tk.Button(master=self,
+                               text=self.head.frames[page].pageTitle,
+                               font=standardFont,
+                               width=15,
+                               height=1,
+                               relief=standardRelief,
+                               command=lambda destination=page: self.head.show_frame(destination))
             button.pack(side=tk.LEFT)
             self.widgets[page] = button
 
         self.config(highlightbackground="black",
-                    highlightthickness=1, bg="#d4d4d4")
+                    highlightthickness=1,
+                    bg="#d4d4d4")
 
     def update(self) -> None:
         for (key, value) in self.widgets.items():
@@ -68,43 +74,60 @@ class Controls(tk.Frame):
 
         self.course = None
 
-        self.config(bg=self.bg, highlightbackground="black",
+        self.config(bg=self.bg,
+                    highlightbackground="black",
                     highlightthickness=1)
+        debugButton = tk.Button(self,
+                                text="Debug",
+                                relief=standardRelief,
+                                bg="White",
+                                activebackground=self.bg,
+                                width=10,
+                                command=lambda: threading.Thread(target=self.debug).start())
+        debugButton.pack(pady=(10, 10), side=tk.BOTTOM)
 
-        self.widgets[tk.Label] = tk.Label(
-            self, bg=self.bg, text="Course Search")
-        self.widgets[tk.Label].pack()
+        searchLabel = tk.Label(self, bg=self.bg, text="Course Search")
+        searchLabel.pack()
 
         self.widgets[CourseSearch] = CourseSearch(self, head)
-        self.widgets[CourseSearch].pack()
+        self.widgets[CourseSearch].pack(pady=(10, 10))
 
-        self.widgets[tk.Button] = tk.Button(
-            self, text="Search", relief=standardRelief, bg="White", activebackground=self.bg, width=10, command=lambda: threading.Thread(target=self.search_course).start())
-        self.widgets[tk.Button].pack(pady=(10, 10))
+        searchButton = tk.Button(self,
+                                 text="Search",
+                                 relief=standardRelief,
+                                 bg="White",
+                                 activebackground=self.bg,
+                                 width=10,
+                                 command=lambda: threading.Thread(target=self.search_course).start())
+        searchButton.pack(pady=(10, 10))
 
-        self.widgets["Debug"] = tk.Button(
-            self, text="Debug", relief=standardRelief, bg="White", activebackground=self.bg, width=10, command=lambda: self.debug())
-        self.widgets["Debug"].pack(pady=(10, 10))
+        selectLabel = tk.Label(self, bg=self.bg, text="Course Select")
+        selectLabel.pack()
+
+        self.widgets[SelectBox] = SelectBox(
+            self, self.head, relief=standardRelief)
+        self.widgets[SelectBox].pack(pady=(10, 10))
 
     def __repr__(self):
         location = self.pack_info()()
         return f"<Controls>"
 
-    def debug(self):
-        with self.head.coursesLock:
-            print(self.head.courses)
+    def debug(self) -> None:
+        print(Course.courses)
 
-    def search_course(self):
+    def search_course(self) -> None:
         courseSearch = self.widgets[CourseSearch]
-        code = courseSearch.get()
+        code = courseSearch.get().upper()
         if courseSearch.valid:
-            with self.head.coursesLock:
-                try:
-                    self.course = self.head.courses[code]
-                except KeyError as e:
-                    self.head.courses[code] = Course(code)
-                    self.course = self.head.courses[code]
-                self.head.page_refresh()
+            self.course = Course.getCourse(code)
+            self.head.page_refresh()
+
+    def update(self) -> None:
+        for (key, widget) in self.widgets.items():
+            try:
+                widget.refresh()
+            except:
+                pass
 
 
 class CourseSearch(tk.Entry):
@@ -125,7 +148,9 @@ class CourseSearch(tk.Entry):
         self.head = head
 
         self.text = tk.StringVar()
-        self.text.set("Course Code")
+        # self.text.set("Course Code")
+        # debug
+        self.text.set("csse1001")
         self.valid = False
 
         self.config(textvariable=self.text, relief=standardRelief,
@@ -151,9 +176,75 @@ class CourseSearch(tk.Entry):
         """Triggers on enter being pressed in widget, prints debug information"""
         end_print(self.get(), len(self.get()))
 
-#########################################
-#                Frames                 #
-#########################################
+
+class SelectBox(tk.Frame):
+    def __init__(self, master, head, *args, **kwargs):
+        super(self.__class__, self).__init__(
+            master=master, *args, **kwargs)
+        self.master = master
+        self.head = head
+        self.widgets = {}
+
+        self.entry_text = tk.StringVar()
+        self.entry_text.trace('w', self.on_change)
+
+        self.selected = None
+        self.list = []
+
+        entry = tk.Entry(self, relief=standardRelief,
+                         textvariable=self.entry_text)
+        entry.pack()
+
+        self.widgets[tk.Listbox] = tk.Listbox(
+            self, relief=standardRelief, selectmode=tk.SINGLE)
+        self.widgets[tk.Listbox].pack()
+        self.widgets[tk.Listbox].bind('<Double-Button-1>', self.on_select)
+
+        self.update_list(self.list)
+
+    def on_change(self, *args):
+        # print(args)
+
+        value = self.entry_text.get()
+        value = value.strip().lower()
+
+        # get data from the list
+        if value == '':
+            data = self.list
+        else:
+            data = []
+            for item in self.list:
+                if value in item.lower():
+                    data.append(item)
+        # update data in listbox
+        self.update_list(data)
+
+    def on_select(self, event):
+        listbox = self.widgets[tk.Listbox]
+        cur = listbox.curselection()
+        selected = listbox.get(cur) if cur != () else None
+        print(
+            f"Selected: {selected}")
+        if selected is not None:
+            self.entry_text.set(selected)
+
+    def update_list(self, data):
+        listbox = self.widgets[tk.Listbox]
+        # delete previous data
+        listbox.delete(0, 'end')
+        # sorting data
+        data = sorted(data, key=str.lower)
+        # put new data
+        for item in data:
+            listbox.insert('end', item)
+
+    def refresh(self):
+        self.list = Course.getCourseNames()
+        self.update_list(self.list)
+
+        #########################################
+        #                Frames                 #
+        #########################################
 
 
 class DefaultFrame(tk.Frame):
@@ -171,7 +262,7 @@ class DefaultFrame(tk.Frame):
         location = self.pack_info()
         return f"<DefautFrame>"
 
-    def draw_default_widgets(self, colour):
+    def draw_default_widgets(self, colour) -> None:
         tk.Frame(master=self, background=colour).pack(
             expand=True, fill=tk.BOTH)
 
@@ -191,7 +282,7 @@ class CourseCanvas(tk.Canvas):
         self.master = master
         self.head = head
 
-    def create_label(self, x: int, y: int, text: str, tags=()):
+    def create_label(self, x: int, y: int, text: str, tags=()) -> None:
         fill = "light blue"
         height = 30
         width = height*5/2
@@ -205,11 +296,6 @@ class CourseCanvas(tk.Canvas):
     def refresh(self):
         pass
 
-
 #########################################
 #                Labels                 #
-#########################################
-
-#########################################
-#          Mapping Components           #
 #########################################

@@ -1,23 +1,14 @@
 import tkinter as tk
 import threading
 
-from uqCoursePlanner.subjectClasses import Course
 
 from uqCoursePlanner.customWidgets import CourseCanvas, DefaultFrame, Controls, PageNavigation
 from uqCoursePlanner.appSettings import Appversion
 
-# TODO todo list
+# TODO list
 """
-refactor instance variables that should be class variables
-refactor clusters of code in class methods and make more methods
-large mapping area
-settings area
-    [
-        default num classes per add Semester
-    ]
-select prerequisite layout for courses
-add second check when deleting semesters
-investigate asyncio and threads https://www.youtube.com/watch?v=9zinZmE3Ogk&t=2244s
+Change web scrape Thread to something similar to 2310 system with semaphore and locks
+Add more pages
 """
 #########################################
 #       Tkinter Frames and pages        #
@@ -95,10 +86,8 @@ class Application(tk.Tk):
 
         self.frames = {}
         self.pages = [MapPage, Page2]
+        # must be None of type, not instance
         self.currentPage = None
-
-        self.courses = {}
-        self.coursesLock = threading.Lock()
 
         # create the frames
         for page in self.pages:
@@ -131,11 +120,15 @@ class Application(tk.Tk):
         frame = self.frames[page]
         frame.tkraise()
         frame.refresh()
-        self.nav.update()
         self.currentPage = page
+        # must be last
+        self.nav.update()
+        self.controls.update()
 
     def page_refresh(self) -> None:
         self.frames[self.currentPage].refresh()
+        self.nav.update()
+        self.controls.update()
 
 ##############################################  WORKSPACE   ##############################################
 

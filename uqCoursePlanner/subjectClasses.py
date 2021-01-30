@@ -1,5 +1,11 @@
 
+from __future__ import annotations
+
 from collections import deque
+import re
+import threading
+from typing import List
+
 from .scraper import LogicParser, WebsiteScraper
 from .appSettings import year, default_description
 #########################################
@@ -12,7 +18,8 @@ class Course():
 
         A simulation of a realworld course, contains information on the course
         i.e. code, description, prerequisites
-        & a cluster of functions used to update the information and find a course object
+        & a cluster of functions used to update the information and find a
+        course object
 
     Parameters:
         parentApp (cls): Parent application for reference.
@@ -22,10 +29,17 @@ class Course():
         parent_semester (semester()): used for reference
             DEFAULT VALUE: assigns a semester
     """
+    courses = {}
+    coursesLock = threading.Lock()
 
-    def __init__(self, code: str = None):
+    re_course_code = re.compile(r'[A-Z]{4}\d{4}(?!.)')
+
+    def __init__(self, code: str):
         # Course Code
         self.code = code
+
+        Course.courses[self.code] = self
+
         # attributes
 
         (soup, self.status_code) = WebsiteScraper.fetch_HTML(self.code, year)
@@ -43,12 +57,66 @@ class Course():
             fields["course-prerequisite"])
         self.description = fields["course-summary"] if fields["course-summary"] is not None else default_description
 
-        self.course_prerequisite_tree = deque()
+        self.course_prerequisite_tree = []
+        self.searchMark = 0
 
     def __repr__(self):
         return f"<CourseClass: {self.code}: Prerequisites: {self.prerequisite}>"
 
-    def expand_prerequisites(self):
-        pass
+    def expand_prerequisites(self) -> None:
+        def depthFirstSearch() -> List[Course]:
+            courseValues = Course.getPrerequisites(self)
+            sorted = []
+
+            def visit(node: Course):
+                if node.searchMark == 2:
+                    return
+                if node.searchMark == 1:
+                    raise Exception("Not a valid directed acyclic graph (DAG)")
+
+                node.searchMark = 1
+                for node2 in courseValues:
+                    if node2.hasPrerequisite and node in Course.getPrerequisites(node2):
+                        visit(node2)
+                node.searchMark = 2
+                sorted.insert(0, node)
+
+            # while a node without a perma mark exists
+            while len([course for course in courseValues if course.searchMark != 2]):
+                # unmarked node
+                n = [course for course in courseValues if not course.searchMark].pop()
+                visit(n)
+                # reset marks
+            for course in sorted:
+                course.searchMark = 0
+            return sorted
+        self.course_prerequisite_tree = depthFirstSearch()
+
+    @staticmethod
+    def getCourse(key) -> Course | None:
+        with Course.coursesLock:
+            try:
+                return Course.courses[key]
+            except KeyError as e:
+                if re.match(Course.re_course_code, key):
+                    Course.courses[key] = Course(key)
+                    return Course.courses[key]
+                else:
+                    return None
+
+    @property
+    def hasPrerequisite(self) -> bool:
+        return True if len(self.prerequisite) else False
+
+    @staticmethod
+    def getPrerequisites(course) -> List[Course]:
+        with Course.coursesLock:
+            return [Course.getCourse(key.strip())
+                    for item in course.prerequisite for key in item.split(',')]
+
+    @staticmethod
+    def getCourseNames() -> List[str]:
+        with Course.coursesLock:
+            return [course.code for course in Course.courses.values()]
     # end func
 # end class

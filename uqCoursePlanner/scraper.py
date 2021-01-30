@@ -1,8 +1,6 @@
 
-from ast import Str
 from typing import Any, List, Tuple
 from bs4 import BeautifulSoup
-import bs4
 from requests import get as rget
 import re
 
