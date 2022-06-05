@@ -1,11 +1,19 @@
 # UQ-Course-Planner
 W.I.P. Script to map out the prerequisites for each course
-If you choose to use any of the code within the repository I would appreciate a mention
 
 # How to Use
-Go into the main section of the coe and then set your courses. Running the code should produce a diagram similar to below.
+After running the main class a UI should be created.
 
-![Example Graph Image](Documentation/graph.jpg)
+![Example Main Application Image](Documentation/Main.jpg)
+
+To search for a course add it to the list and hit to "send 2 web" button.
+
+Going to course information allows you to select the data for one of the courses.
+The full course map is not implemented in this release.
+
+![Example Information Application Image](Documentation/information.jpg)
 
 # Repository Structure
-[main.py](Main.py) contains the full code for the project with the different components also available in their respective files
+[main.py](Main.py) contains the applicaiton launcher
+
+[uqCoursePlanner](uqCoursePlanner) contains the different modules for the application in the private package
