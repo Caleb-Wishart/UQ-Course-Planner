@@ -30,7 +30,7 @@ error_logs = True
 email = "cw.online.acc@outlook.com"
 
 # year to look for in URL
-year = "2020"
+year = "2021"
 
 #### USER SETTINGS ####
 recursive_searching = True

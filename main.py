@@ -5,7 +5,6 @@ import threading
 from uqCoursePlanner.customWidgets import CourseCanvas, DefaultFrame, Controls, PageNavigation
 from uqCoursePlanner.appSettings import Appversion
 
-# TODO list
 """
 Change web scrape Thread to something similar to 2310 system with semaphore and locks
 Add more pages
@@ -40,7 +39,7 @@ class MapPage(DefaultFrame):
         return f"<MapPage>"
 
 
-class Page2(DefaultFrame):
+class Settings(DefaultFrame):
 
     """The Course Info Page
         A tkinter Frame that contains information on a course the user selects
@@ -54,7 +53,7 @@ class Page2(DefaultFrame):
     def __init__(self, master, head):
         # Frame Initialisation
         super(self.__class__, self).__init__(
-            master, head, "Page 2")
+            master, head, "Settings")
 
     def __repr__(self) -> str:
         return f"<Page2>"
@@ -85,7 +84,7 @@ class Application(tk.Tk):
         container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         self.frames = {}
-        self.pages = [MapPage, Page2]
+        self.pages = [MapPage, Settings]
         # must be None of type, not instance
         self.currentPage = None
 
@@ -105,15 +104,20 @@ class Application(tk.Tk):
         for page in self.pages:
             self.frames[page].draw_default_widgets(page.colour)
 
-        # call the first screen
-        self.show_frame(self.pages[0])
-
         # grid configure
         container.grid_rowconfigure(0, weight=0)
         container.grid_rowconfigure(1, weight=1)
 
         container.grid_columnconfigure(0, weight=0, minsize=200)
         container.grid_columnconfigure(1, weight=1)
+
+        self.update()
+        # call the first screen
+        self.show_frame(self.pages[0])
+        # set the program to refresh the page (and move the components when window size changes)
+        # FIXME Change this to a more CPU friendly way so that the refresh is
+        # not called event pixel change but until the window is done resizing
+        self.bind("<Configure>", lambda event: self.page_refresh())
 
     def show_frame(self, page) -> None:
         """brings the specified frame to the front"""

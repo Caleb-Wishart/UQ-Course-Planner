@@ -1,6 +1,8 @@
 import re
 import tkinter as tk
+from tkinter.font import Font
 import threading
+from typing import Tuple
 
 from .appSettings import end_print
 from .subjectClasses import Course
@@ -149,21 +151,21 @@ class CourseSearch(tk.Entry):
 
         self.text = tk.StringVar()
         # self.text.set("Course Code")
-        # debug
-        self.text.set("csse1001")
+        # DEBUG
+        self.text.set("csse231")
         self.valid = False
 
         self.config(textvariable=self.text, relief=standardRelief,
                     justify=self.justify, font=standardFont)
         # bind commands to interactions
-        self.bind('<KeyRelease>', lambda event: self.key_handler(event))
+        self.bind('<KeyRelease>', lambda event: self.key_handler())
         # debug
-        self.bind('<Return>', lambda event: self.print_handler(event))
+        self.bind('<Return>', lambda event: self.print_handler())
 
     def __repr__(self) -> str:
         return f"Course Search Entry"
 
-    def key_handler(self, event) -> None:
+    def key_handler(self) -> None:
         """Triggers on mouse exit widget, change background colour"""
         if self.CourseCodeReXp.match(self.get()):
             self.config(bg=self.backgroundColour)
@@ -172,7 +174,7 @@ class CourseSearch(tk.Entry):
             self.config(bg=self.errorBackgroundColour)
             self.valid = False
 
-    def print_handler(self, event) -> None:
+    def print_handler(self) -> None:
         """Triggers on enter being pressed in widget, prints debug information"""
         end_print(self.get(), len(self.get()))
 
@@ -198,7 +200,8 @@ class SelectBox(tk.Frame):
         self.widgets[tk.Listbox] = tk.Listbox(
             self, relief=standardRelief, selectmode=tk.SINGLE)
         self.widgets[tk.Listbox].pack()
-        self.widgets[tk.Listbox].bind('<Double-Button-1>', self.on_select)
+        self.widgets[tk.Listbox].bind(
+            '<Double-Button-1>', lambda event: self.on_select())
 
         self.update_list(self.list)
 
@@ -219,14 +222,22 @@ class SelectBox(tk.Frame):
         # update data in listbox
         self.update_list(data)
 
-    def on_select(self, event):
+    def on_select(self):
         listbox = self.widgets[tk.Listbox]
         cur = listbox.curselection()
         selected = listbox.get(cur) if cur != () else None
-        print(
-            f"Selected: {selected}")
         if selected is not None:
             self.entry_text.set(selected)
+            self.selected = selected
+            page = self.head.frames[self.head.currentPage]
+            if CourseCanvas in page.widgets:
+                canvas = page.widgets[CourseCanvas]
+                course = Course.getCourse(selected)
+                if canvas.course != course:
+                    canvas.new_course = True
+                    canvas.course = course
+                    threading.Thread(
+                        target=canvas.update).start()
 
     def update_list(self, data):
         listbox = self.widgets[tk.Listbox]
@@ -240,7 +251,7 @@ class SelectBox(tk.Frame):
 
     def refresh(self):
         self.list = Course.getCourseNames()
-        self.update_list(self.list)
+        self.on_change()
 
         #########################################
         #                Frames                 #
@@ -276,25 +287,83 @@ class DefaultFrame(tk.Frame):
 
 class CourseCanvas(tk.Canvas):
     """A custom tkinter canvas"""
+    labelHeight = 30
+    labelWidth = labelHeight * 5 / 2
 
     def __init__(self, master, head, *args, **kwargs):
         super(CourseCanvas, self).__init__(master=master, *args, **kwargs)
         self.master = master
         self.head = head
+        self.course = None
+        self.new_course = False
 
-    def create_label(self, x: int, y: int, text: str, tags=()) -> None:
-        fill = "light blue"
-        height = 30
-        width = height*5/2
-        tags = tuple(
-            [tag+"_label" for tag in tags])
-        self.create_rectangle(x, y, x+width, y+height,
+        self.create_label(
+            x=0, y=5, text='Course Tree', fill=standardWidgetColour, tags=("Header",))
+
+    def create_label(self, x: int, y: int, text: str, fill="light blue", tags=()) -> None:
+        """Custom label function
+        TODO: make it so that the width is determined by height * 5/2 or req. length, whatever is larger
+
+        Args:
+            x (int): [description]
+            y (int): [description]
+            text (str): [description]
+            fill (str, optional): [description]. Defaults to "light blue".
+            tags (tuple, optional): [description]. Defaults to ().
+        """
+        tags = tags + ("label",)
+        self.create_rectangle(x, y, x + self.labelWidth, y + self.labelHeight,
                               fill=fill, tags=tags)
-        self.create_text(x+width/2, y+height/2, text=text,
+        self.create_text(x + self.labelWidth / 2, y + self.labelHeight / 2, text=text,
                          font=standardFont, tags=tags)
 
     def refresh(self):
-        pass
+        # refresh label location
+        header = self.find_withtag("Header")
+        for item in header:
+            x = self.winfo_width() / 2 - self.coords(item)[0]
+            if self.type(item) != "text":
+                x -= self.labelWidth / 2
+            # works by adding x to items current X pos
+            self.move(item, x, 0)
+        # DEBUG Guides
+        self.delete(self.find_withtag("DEBUG"))
+        inset = 40
+        x, y = tuple(
+            map(lambda x, y: x - y, self.dimensions, (inset, inset)))
+        self.create_line((inset, inset), (inset, y), (x, y),
+                         (x, inset), (inset, inset), tag="DEBUG")
+
+    def update(self):
+        # FIXME Threading does not work as intended, while searching and moving the window
+        # DONE IN SEPERATE THREAD
+        if self.new_course:
+            labels = self.find_withtag("label")
+            header = set(self.find_withtag("Header"))
+            course_labels = [x for x in labels if x not in header]
+            self.delete(course_labels)
+            if self.course is not None:
+                self.course.expand_prerequisites()
+            self.new_course = False
+            self.draw_map()
+
+    def draw_map(self):
+        mapList = self.course.prerequisite_tree
+        # print(mapList)
+        if mapList != None:
+            numColumns = len(mapList)
+            print('Starting label drawing process')
+            for column, layer in enumerate(mapList, 1):
+                for row, course in enumerate(layer, 1):
+                    numRows = len(layer)
+                    x = column * self.dimensions[0] / numColumns + 40
+                    y = row * self.dimensions[1] / numRows + 40
+                    self.draw_Label(x, y, course.code)
+            print('Label drawing process finished')
+
+    @ property
+    def dimensions(self) -> Tuple[int, int]:
+        return (self.winfo_width(), self.winfo_height())
 
 #########################################
 #                Labels                 #

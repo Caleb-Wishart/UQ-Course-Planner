@@ -38,10 +38,7 @@ class Course():
         # Course Code
         self.code = code
 
-        Course.courses[self.code] = self
-
         # attributes
-
         (soup, self.status_code) = WebsiteScraper.fetch_HTML(self.code, year)
 
         # lists of attributes to search
@@ -57,40 +54,18 @@ class Course():
             fields["course-prerequisite"])
         self.description = fields["course-summary"] if fields["course-summary"] is not None else default_description
 
-        self.course_prerequisite_tree = []
+        self.prerequisite_tree = None
         self.searchMark = 0
+
+        Course.courses[self.code] = self
 
     def __repr__(self):
         return f"<CourseClass: {self.code}: Prerequisites: {self.prerequisite}>"
 
     def expand_prerequisites(self) -> None:
-        def depthFirstSearch() -> List[Course]:
-            courseValues = Course.getPrerequisites(self)
-            sorted = []
-
-            def visit(node: Course):
-                if node.searchMark == 2:
-                    return
-                if node.searchMark == 1:
-                    raise Exception("Not a valid directed acyclic graph (DAG)")
-
-                node.searchMark = 1
-                for node2 in courseValues:
-                    if node2.hasPrerequisite and node in Course.getPrerequisites(node2):
-                        visit(node2)
-                node.searchMark = 2
-                sorted.insert(0, node)
-
-            # while a node without a perma mark exists
-            while len([course for course in courseValues if course.searchMark != 2]):
-                # unmarked node
-                n = [course for course in courseValues if not course.searchMark].pop()
-                visit(n)
-                # reset marks
-            for course in sorted:
-                course.searchMark = 0
-            return sorted
-        self.course_prerequisite_tree = depthFirstSearch()
+        if self.prerequisite_tree is None:
+            tree = deque()
+            tree.append(Course.getPrerequisites(self))
 
     @staticmethod
     def getCourse(key) -> Course | None:
@@ -110,9 +85,8 @@ class Course():
 
     @staticmethod
     def getPrerequisites(course) -> List[Course]:
-        with Course.coursesLock:
-            return [Course.getCourse(key.strip())
-                    for item in course.prerequisite for key in item.split(',')]
+        return list({Course.getCourse(key.strip())
+                     for item in course.prerequisite for key in item.split(',')})
 
     @staticmethod
     def getCourseNames() -> List[str]:

@@ -44,7 +44,7 @@ class LogicParser():
         re_parentheses = re.findall(r'\((?:[^()]*|\([^()]*\))*\)', inp)
         # replace all of the top level bracket sections with ID's
         for i in range(len(re_parentheses)):
-            inp = inp.replace(re_parentheses[i], 'ID'+str(i))
+            inp = inp.replace(re_parentheses[i], 'ID' + str(i))
 
         # split content in required Courses by AND
         component = re.split(' AND ', inp)
@@ -201,15 +201,15 @@ class WebsiteScraper():
         re_malformed_operator_left = re.compile(r'([A-Z]{4}\d{4})(AND|OR)')
         while re_malformed_operator_left.search(inp):
             location = re_malformed_operator_left.search(inp).start()
-            inp = inp[:location+1] + ' ' + inp[location+1:]
+            inp = inp[:location + 1] + ' ' + inp[location + 1:]
 
         re_malformed_operator_right = re.compile(r'(AND|OR)([A-Z]{4}\d{4})')
         while re_malformed_operator_right.search(inp):
             location = re_malformed_operator_right.search(inp).start()
             if inp[location] == 'A':
-                inp = inp[:location+3] + ' ' + inp[location+3:]
+                inp = inp[:location + 3] + ' ' + inp[location + 3:]
             else:
-                inp = inp[:location+2] + ' ' + inp[location+2:]
+                inp = inp[:location + 2] + ' ' + inp[location + 2:]
         # See COMP2303 example
         re_missing_course_code = re.compile(
             r'([A-Z]{4}\d{4}) (AND|OR) (\d{4})')
@@ -217,8 +217,8 @@ class WebsiteScraper():
         while re_missing_course_code.search(inp):
             location = re_only_course_number.search(inp).start()
             code_location = re_missing_course_code.search(inp).start()
-            code = inp[code_location:code_location+4]
-            inp = inp[:location+1] + code + inp[location+1:]
+            code = inp[code_location:code_location + 4]
+            inp = inp[:location + 1] + code + inp[location + 1:]
         # See COMS3000 for example
         re_for_code = re.compile(r'((?<=(: ))(.*?)(?=;|$))', re.MULTILINE)
         re_course_code = re.compile(r'[A-Z]{4}\d{4}(?!.)')
