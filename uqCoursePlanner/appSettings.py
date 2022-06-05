@@ -16,7 +16,7 @@ line_segment = "------------------------------------------------"
 # taken to subjectClasses -> customWidgets -> main
 
 #### APP DATA ####
-Appversion = "0.0.1"
+Appversion = "0.3.0"
 
 #### LOGGING ####
 # verbose_output forces error_logs ON when True
