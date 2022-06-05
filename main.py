@@ -1,326 +1,461 @@
+from bs4 import BeautifulSoup
+from requests import get as rget
+from sys import stderr
+import re
 import tkinter as tk
 
-from customWidgets import *
-from scraper import *
-from subjectClasses import *
+# Q.O.L variables
+line_ending = '\n------------------------\n'
 
-# 1000+ lines and counting (across files)
+# email for bug reports / requests
+email = 'cw.online.acc@outlook.com'
+year = '2020'
+debug_lines = False
 
-# TODO TODO TODO TODO
-# intermediary node lines
-# VS Code syntax highlighitng 
-# verbose output
-# error output
-# settings area, default num classes per add semester, add second check when deleting semesters
-# refactor clusters of code in class methods and make more methods
-# TODO TODO TODO TODO
+# parses the logic retrieved from the website
+# Error with COMS3000
 
-#########################################
-#       Tkinter Frames and pages        #
-#########################################
+class logicParser():
 
-# the course selection criteria
-class coursePage(defaultFrame):
-    # the parent container and tkinter Controller
-    def __init__(self,parentApp,controller):
-        # Frame Initialisation
-        super().__init__(parentApp,controller,'Course Search')
+    def __init__(self):
+        # regex for matching course codes
+        self.re_course_code = re.compile(r'[A-Z]{4}\d{4}')
+        # regex for matching logical operators
+        self.re_non_course_code = re.compile(r'((and)|(or)|(\()|(\)))')
+        # the master list that holds the result
+        self.final_options = ['']
+
+    # breaks the input down by seperating by the AND function - handles brackets
+    # accepts string input ONLY
+    def breakdown(self,inp):
+        # find all of the top level brackets
+        brackets = re.findall(r'\((?:[^()]*|\([^()]*\))*\)',inp)
+
+        # replace all of the top level bracket sections with ID's
+        for i in range(len(brackets)):
+            inp = inp.replace(brackets[i],'ID'+str(i))
+
+        # split content in required courses by AND
+        component = re.split(' AND ', inp)
+
+        # if the item is an ID replace it with the ID otherwise return the item
+        component = [brackets[int(item[-1])] [1:-1] if item.find('ID') != -1 else item for item in component]
+        return component
         
-        # tkinter widget array
-        self.labels = []
+    # accepts list input ONLY
+    def orSolver(self,work_array):
+        # tracker for which iteration we are on
+        num = 0
+        # duplicate final array enough times so each option appears in the right spot
+        work_final_options = [item for item in self.final_options for __ in range(0,len(work_array))]
+        # duplicate the work array items so that they appear on each instance of the final product
+        work_array = work_array * len(self.final_options)
+        # while there are still option
+        while len(work_array) != 0:
+            working_item = work_array[0]
+            # if the item is just a course code either set that option to the item or add it to the end if one exists already in that line
+            if len(working_item) == 8 and self.re_course_code.search(working_item):
+                if len(work_final_options[num]) == 0:
+                    work_final_options[num] = working_item
+                else:
+                    work_final_options[num] += ', {}'.format(working_item)
+                
+                num+=1
+                # remove the item from the process queue
+                work_array.remove(working_item)
 
-        # courses that are not a part of the user description
-        self.null_semester = semester(-1)
+            # if there is no further breakdown item add it to the list (handles exception where the prereq is a not a couse-code unit)
+            elif working_item.find('AND') == -1 and working_item.find('OR') == -1:
+                if len(work_final_options[num]) == 0:
+                    work_final_options[num] = working_item
+                else:
+                    work_final_options[num] += ', {}'.format(working_item)
+                
+                num+=1
+                # remove the item from the process queue
+                work_array.remove(working_item)
 
-        # status on the web querry
-        self.webQueryStatus = webQuerryStatusBar(self,self.controller)
-        self.webQueryStatus.grid(row=0,column=2)
+            # if the working item contains a nested AND function but not an OR function try breaking it down, 
+            # if there are further nested entries throw an error as I am too lazy to try and get it to sort out the rest atm,
+            # but if not add both to the end of the list
+            elif working_item.find('AND') != -1:
 
-        self.semesters = []
-        # creating the first semester
-        self.semesters.append(semester(1))
-        self.semesters[0].addCourse(course(self,self.controller,parent_semester=self.semesters[0]))
-        
-        # initial generation
-        self.generateLabels()
-
-    # generate the dynamic UI 
-    def generateLabels(self):
-        # start by destroying any existing widgets
-        for widget in self.labels:
-            if widget.ID == "courseLabel" or widget.ID == "semesterLabel":
-                widget.destroy()
-            elif widget.ID == "courseNumControls" or widget.ID == "semesterNumControls":
-                widget.destroyElements()
+                work_array_and = self.breakdown(working_item[1:-1])
+                for item in work_array_and:
+                    if self.re_non_course_code.search(item):
+                        print('Required courses are too complicated to parse\n for support please contanct the author at: ',email)
+                        exit()
+                    else:
+                        work_final_options[num] += ', {}'.format(item)
+                
+                num+=1
+                # remove item from the process queue
+                work_array.remove(working_item)
+            
             else:
-                print("unexpected widget in label area") # unexpected item in the bagging area
-        # reset list
-        self.labels = []
+                # failsafe
+                print('Sorry something went wrong in the orSolver, below are variable values for debugging',end=line_ending,file=stderr)
+                print('Final Options:  ',self.final_options,end=line_ending,file=stderr)
+                print('OR Work array ended at  ',work_array,end=line_ending,file=stderr)
+                exit()
+        # set the master list to be the different branches of the process completed above
+        self.final_options = [item for item in work_final_options]
 
-        # redraw all widgets
-        for sem in self.semesters:
-            # semester label
-            self.labels.append(semesterLabel(self,sem.semester_number))
-            # course code entrys
-            for course_object in sem.courses:
-                self.labels.append(courseLabel(self,self.controller,course_object,sem.semester_number,course_object.location))
-            # courseNum controller
-            self.labels.append(courseNumControls(self,self.controller,sem))
-        # add the semesterNum controller at the end
-        self.labels.append(semesterNumControls(self,len(self.semesters)))
-        self.controller.update()
+    # accepts list input ONLY
+    def standardSolver(self,work_array):
+        # while there are still options
+        while len(work_array) != 0:
+            working_item = work_array[0]
+            # if the current item matches a course code add it to the final options list(s)
+            if len(working_item) == 8 and self.re_course_code.search(working_item):
+                # if this is the first item to be computer make the array that item
+                if self.final_options[0] == '':
+                    self.final_options = [working_item]
+                    # remove item from process queue
+                    work_array.remove(working_item)
+                else:
+                    self.final_options = [item + ', {}'.format(working_item) for item in self.final_options]
+                    # remove item from process queue
+                    work_array.remove(working_item)
+            # if the current item contains an OR logical operator send it to the OR function to process
+            elif working_item.find('OR') != -1:
+                component = re.split(' OR ', working_item)
+                self.orSolver(component)
+                # once processed remove item from queue
+                work_array.remove(working_item)    
+            else:
+                # failsafe
+                print('Sorry something went wrong in the standardSolver, below are variable values for debugging',end=line_ending,file=stderr)
+                print('Final Options:  ',self.final_options,end=line_ending,file=stderr)
+                print('Work array ended at  ',work_array,end=line_ending,file=stderr)
+                exit()
 
-    #  add a semester the the semester list
-    def addSemester(self):
-        self.semesters.append(semester(len(self.semesters) + 1))
-        self.semesters[-1].addCourse(course(self,self.controller,parent_semester=self.semesters[-1]))
+    # to call outside of the class
+    def prerequisiteList(self,content):
+        # sets the final result list to empty as a reset as __init__ only creates variable and doesn't reset
+        self.final_options = ['']
+        # starts the process
+        self.standardSolver(self.breakdown(content))
 
-    # remove the last semester from the list
-    def popSemester(self):
-        self.semesters.pop()
+        return self.final_options
 
-    def updateWidgetCourseObjects(self):
-        for widget in self.labels:
-            if widget.ID == "courseLabel":
-                widget.queryWeb()
+# gets the html and returns a BS4 object
+class websiteScraper():
 
-    def updateMasterCourseList(self):
-        for course in self.null_semester.courses:
-            if course not in self.controller.courseList:
-                self.controller.courseList.append(course)
+    def __init__(self):
+        # nothing here
+        pass
 
-# the main canvas for the course mapping
-class courseMappingPage(defaultFrame):
-    # the parent container and tkinter Controller
-    def __init__(self,parentApp,controller):
-        # Frame Initialisation
-        super().__init__(parentApp,controller,'Course Map')
-        # canvas item
-        canvas = tk.Canvas(self)
-        canvas.grid(row=1,column=1)
+    # Changes the case and manipulates the input to parse
+    def inputModification(self,inp,code):
+        re_malformed_operator_left = re.compile(r'\w(AND|OR)')
+        re_malformed_operator_right = re.compile(r'(AND|OR)\w')
+        course_code = re.compile(r'[A-Z]{4}\d{4}')
 
-# the main frame for the course descriptions
-class courseInfoPage(defaultFrame):
-    # the parent container and tkinter Controller
-    def __init__(self,parentApp,controller):
-        # Frame Initialisation
-        super().__init__(parentApp,controller,'Course Information')
-        
-        self.optionSelect = courseInfoSelect(self,self.controller)
-        self.optionSelect.grid(row=0,column=2)
+        inp = inp.upper()
+        inp = re.sub(r',',' AND',inp) # replacing the ',' with 'AND'
+        inp = re.sub(r'\+','AND',inp) # replacing the '+' with 'AND'
+        # add missing spaces for logical operators
+        while re_malformed_operator_left.search(inp):
+            location = re_malformed_operator_left.search(inp).start()
+            inp = inp[:location+1] + ' ' + inp[location+1:]
 
-        tk.Label(self,relief=tk.GROOVE,text="Code",font=standardFont,background=standardWidgetColour,padx=4,pady=4).grid(row=1,column=1,sticky=tk.N)
-        
-        self.title = tk.Label(self,relief=tk.GROOVE,text=self.optionSelect.text.get(),font=standardFont,background=standardWidgetColour,padx=4,pady=4)
-        self.title.grid(row=1,column=1)
+        while re_malformed_operator_right.search(inp):
+            location = re_malformed_operator_right.search(inp).start()
+            if inp[location] == 'A':
+                inp = inp[:location+3] + ' ' + inp[location+3:]
+            else:
+                inp = inp[:location+2] + ' ' + inp[location+2:]
 
-        self.description = scrollableRegion(self)
-        self.description.grid(row=1,column=2)
+        edge_case1 = re.compile(r'((?<=(: ))(.*?)(?=;|$))',re.MULTILINE) #See COMS3000 for example
+        if 'F OR' in inp:
+            srch = edge_case1.findall(inp)
+            if course_code.search(inp).group(0) == code:
+                inp = srch[0][0]
+            else:
+                inp = srch[1][0]
 
-        self.prereqMap = courseMap(self,self.controller)
-        self.prereqMap.grid(row=2,column=2,pady=10)
+        return inp
 
-        # status on the web querry
-        self.webQueryStatus = webQuerryStatusBar(self,self.controller)
-        self.webQueryStatus.grid(row=2,column=0)
+    # returns a BS4 soup object
+    def fetchHTML(self,course_code,search_year=year):
+        # URL stoof
+        headers = {'User-Agent': 'Mozilla/5.0'}
 
-    def updatePage(self):
-        code = self.optionSelect.text.get()
-        self.title["text"] = code
+        # URL development -> base + code and year
+        url = 'https://my.uq.edu.au/programs-courses/course.html?course_code={}&year={}'.format(course_code,search_year)
 
-        self.description.text['state'] = tk.NORMAL
-        self.description.text.delete(1.0,tk.END)
-        self.description.text.insert(tk.INSERT, *[co.description for co in self.optionSelect.options if co.code == code])
-        self.description.text['state'] = tk.DISABLED
+        # get and parse URL
+        r = rget(url,headers=headers)
+        if r.status_code != 200:
+            # failsafe
+            print('Sorry something went wrong getting the URL, below are variable values for debugging',end=line_ending,file=stderr)
+            print('URL:  ',url,end=line_ending,file=stderr)
+            print('Status Code:  ',r.status_code,end=line_ending,file=stderr)
+            exit()
+        soup = BeautifulSoup(r.text,'html.parser')
+        return soup
 
-        self.prereqMap.updateCanvas(code)
-
-#########################################
-#               MAIN APP                #
-#########################################
-# the main application wrapper for the program
-class coursePlannerAssistantApp(tk.Tk):
-    # standard openning
-    def __init__(self, *args,**kwargs):
-        # Tk initiatilsation
-        tk.Tk.__init__(self, *args,**kwargs)
-        
-        # Window Managment
-        self.title('UQ Course Planner Assistant: Alpha')
-        self.geometry('960x540')
-        # self.resizable(0,0)
-        
-        # the master container for the program
-        container = tk.Frame(self)
-        container.pack(side=tk.TOP,fill=tk.BOTH,expand=True)
-
-        # setting defaults
-        container.grid_rowconfigure(0,weight=1)
-        container.grid_columnconfigure(0,weight=1)
-
-        self.frames = {}
-        self.pageFuncs = (coursePage,courseMappingPage,courseInfoPage)
-
-        self.courseList = []
-
-        # create the frames
-        for F in self.pageFuncs:
-            frame = F(container, self)
-            self.frames[F] = frame
-            frame.grid(row=0,column=0,sticky=tk.NSEW)
-        
-        # call the first screen
-        self.show_frame(coursePage)
-
-        # draw default widgets after all frames have been initialised
-        # required as navigation references self.frames items
-        for page in self.pageFuncs:
-            self.frames[page].draw_default_widgets()
-
-    # bring the specified frame to the front
-    def show_frame(self, cont):
-        frame = self.frames[cont]
-        frame.tkraise()
-        # update items
-        if cont == courseInfoPage:
-            self.frames[cont].optionSelect.updateCourseInfoSelection()
-
-    def tallyPrerequisites(self,searchCode):
-        # clear list
-        self.courseList[self.courseList.index(searchCode)].prereq_for.clear()
-        # add to list
-        print(f'searching for {searchCode.code} in course prerequisites')
-        for course in self.courseList:
-            if searchCode.code in set([code for item in course.prerequisite for code in item.split(',')]):
-                self.courseList[self.courseList.index(searchCode)].prereq_for.append(course)
-                print(f'added {searchCode.code} to {course.code} prerequisite')
-        
-##############################################  WORKSPACE   ##############################################
-
-#########################################
-#          Mapping Components           #
-#########################################
-# a custom canvas that shows a map of courses
-class courseMap(tk.Frame):
-
-    def __init__(self,parentPage,controller):
-        tk.Frame.__init__(self,parentPage)
-        self.parentPage = parentPage
-        self.controller = controller
-
-        self.canvasLabels = []
-        self.canvasLines = []
-
-        self.tagTextBox = 'textBox'
-        self.tagTextItem = 'textItem'
-        self.tagNode = 'textNode'
-        self.tagArrow = 'arrow'
-
-        self.width = 500
-        self.height = 200
-
-        self.boxHeight = 30
-        self.boxWidth = self.boxHeight*5/2
-
-        # group title
-        self.title = tk.Label(self,relief=standardRelief,text="Prerequisite Map",font=standardFont,background=standardWidgetColour,padx=4,pady=4)
-        self.title.pack(side=tk.TOP)
-        # canvas
-        self.canvas = tk.Canvas(self,bg=standardWidgetColour,relief=standardRelief,width=self.width,height=self.height)
-        self.canvas.pack()
-
-    def updateCanvas(self,code):
-        # check valid code
-        self.canvas.delete(tk.ALL)
-        course = [course for course in self.controller.courseList if course.code == code]
-        # ensure there is one and only one item
-        if len(course) == 1:
-            course = course[0]
-
-            # find out how many courses this item is a prerequisite for
-            course.prerequisiteMapping(self.parentPage)
-            maplist = course.prerequisiteMap
-            maplist.reverse()
-            numCol = len(maplist)
-            # labels
-            for colLevel, subgroup in enumerate(maplist,1):
-                for rowLevel, cor in enumerate(subgroup,1):
-                    numRows = len(subgroup)
-                    self.draw_Label(cor.code,numCol,numRows,colLevel,rowLevel)
-            maplist.reverse()
-            # arrows
-            for colLevel, subgroup in enumerate(maplist,1):
-                for rowLevel, cor in enumerate(subgroup,1):
-                    # search for prerequisites
-                    self.controller.tallyPrerequisites(cor)
-                    endPrint(f'corse {cor.code} is prereq for {cor.prereq_for}')
-                    for item in cor.prereq_for:
-                        self.draw_Line(cor.code,item.code)
-
-    # draw label with pos being top left of box
-    def draw_Label(self,text,numCol,numRow,col,row):
-        if numCol == 1:
-            x = (self.width) * 0.5 - self.boxWidth/2 
-        else:
-            x = (self.width) * 0.5 + self.boxWidth * 1.5 * (-numCol +1 +col)  - self.boxWidth/2
-        if numRow == 1:
-            y = (self.height) * 0.5 - self.boxHeight/2
-        else:
-            y = (self.height) * 0.5 + self.boxHeight * 1.5 * (-numRow +1 +row) - self.boxHeight/2
-        # tryu find the item with the tag code + textBox
+# a course class (one for each item)
+class course():
+    def __init__(self,code=None,semester=1):
+        # attributes
+        webGet = websiteScraper()
+        parser = logicParser()
+        soup_object = webGet.fetchHTML(code,year)
+        self.code = code
+        self.semester = semester
+        # the follow follow the syntax of parse(the modified result of (the contents of the tag in the BS4 object))
+        # if the tag doesnt exist, an error throws and we just return an empty list
         try:
-            item1 = self.canvas.find_withtag(text+self.tagTextBox)[0]
-            verbosePrint(f'{text} already exists, creating node')
-            x += self.boxWidth/2
-            y += self.boxHeight/2
-            self.canvas.create_rectangle(x,y,x,y,fill='black',tags=text+self.tagNode)
+            self.prerequisite = parser.prerequisiteList(webGet.inputModification(soup_object.find(id='course-prerequisite').string,self.code))
         except:
-            # else make box and text item
+            self.prerequisite = []
+        try:
+            self.recommended = parser.prerequisiteList(webGet.inputModification(soup_object.find(id='course-recommended-prerequisite').string,self.code))
+        except:
+            self.recommended = []
+        try:
+            self.companion = parser.prerequisiteList(webGet.inputModification(soup_object.find(id='course-companion').string,self.code))
+        except:
+            self.companion = []
+        try:
+            self.incompatible = parser.prerequisiteList(webGet.inputModification(soup_object.find(id='course-incompatible').string,self.code))
+        except:
+            self.incompatible = []
 
-                self.canvas.create_rectangle(x,y,x+self.boxWidth,y+self.boxHeight,fill='light blue',tags=text+self.tagTextBox) 
-                self.canvas.create_text(x+self.boxWidth/2,y+self.boxHeight/2,text=text,font=standardFont,tags=text+self.tagTextItem)
-                verbosePrint(f'drew {text} at of row {row}, column {col},x: {x},y:{y}, numCol: {numCol}, numRow: {numRow}')
+# a class for node lines or travel paths for the connections
+class line_node():
+    def __init__(self, xpos=0, ypos=0, sem=0, pos=0):
+        # attributes
+        self.used = False
+        self.xpos = xpos
+        self.ypos = ypos
+        self.number = (sem,pos)
+
+# a class for label nodes for the path connections
+class label_node():
+    def __init__(self, xpos = 0,ypos=0,parent_course='',number=0):
+        # attributes
+        self.used = False
+        self.xpos = xpos
+        self.ypos = ypos
+        self.coords = (xpos,ypos)
+        self.parent_course = parent_course
+        self.number = number
+
+# a custom canvas label with certain attributes and values
+class canvas_label():
     
-    # draw a line from point a to b
-    # code 1 is the left box
-    def draw_Line(self,code1,code2):
-        # check for existing instance
-        try:
-            item1 = self.canvas.find_withtag(code1+self.tagArrow+code2)[0]
-            if item1 != None: # i.e. exists
-                verbosePrint(f'Arrow from {code1} to {code2} already exists')
-                return None
-        except: 
-            # item doesn't exist
-            pass
-        # find the item with the tag code + textBox
-        try:
-            item1 = self.canvas.find_withtag(code1+self.tagTextBox)[0]
-            item2 = self.canvas.find_withtag(code2+self.tagTextBox)[0]
-        except:
-        # if item does not exist return
-            verbosePrint(f'{code1} or {code2} Item does not exist')
-            return None
+    def __init__(self, course_item=course(), xpos=0, ypos=0):
+        super().__init__()
 
-        x1,y1,x2,y2 = self.canvas.coords(item1)
-        a1,b1,a2,b2 = self.canvas.coords(item2)
+        self.width = 80  # max number of pixels wide
+        self.height = 40  # max number of pixels high
 
-        boxwidth = x2-x1
-        boxheight = y2-y1
+        # standard values
+        self.course = course_item
+        self.xpos = xpos
+        self.ypos = ypos
+        self.text = self.course.code
 
-        self.canvas.create_line((x2,y1+boxheight/2),(a1,b1+boxheight/2),fill="red",width=2, arrow=tk.LAST,tags=code1+self.tagArrow+code2)
-        verbosePrint(f'Line drawn from {code1} to {code2}')
-           
+        # path connection nodes
+        num_nodes = 6
+            # Outbound
+        self.nodesOut = [label_node(xpos + self.width, ypos + (self.height -6) / num_nodes * num,self.text,num) for num in range(1,num_nodes+1)]
+            # inbound
+        self.nodesIn = [label_node(xpos, ypos + (self.height -6) / num_nodes * num,self.text,num) for num in range(1,num_nodes+1)]
+
+        # central node for location
+        self.nodeC = (xpos + self.width/2, ypos + self.width/2)
+
+        # actual label
+        self.tk_item = self.__custom_label()
+        self.tk_item.place(x=self.xpos,y=self.ypos,height=self.height,width=self.width)
+
+    # creates a custom tkinter label widget
+    def __custom_label(self):
+        background = '#d9d9d9' #grey
+        textColour = '#000000' #black
+        border_type = 'groove'
+
+        return tk.Label(text=self.text,bg=background,fg=textColour,relief=border_type)
+    
+# object canvas for display purposes
+class objectCanvas(tk.Canvas):
+    def __init__(self, parent=None,course_list=[]):
+        super().__init__(master=parent, bg='grey')
+
+        # function calls
+        self.generate_labels(course_list)
+        self.generate_lines()
+
+    # generates labels for each item
+    def generate_labels(self,course_list):
+        # standard values
+        xbase = 50
+        ybase = 50
+        xmove = 140
+        ymove = 100
+        num_nodes = 2**4
+
+        # creates the labels and adds them to an array
+        self.labels = [canvas_label(    # custom widget class
+                course, (xbase + xmove * (course.semester -1)), # sends a course class object, the x position [generated with a base and offset]
+                # the y position generated with a base and offset where the offset is determined by getting the index in the list and finding its position in that semester by
+                # subtracting the number of courses that come before it e.g if sem 2 pos 2, (assuming 3 course 1st sem) it would interpret as 
+                # index = 5, num of courses in previous semster = 3 so multiply offset by 5-3 (2)
+                (ybase + ymove * (index - len( [x for x in course_list if x.semester < course.semester] ) ) ) ) 
+            for index, course in enumerate(course_list) ] # loop through each item
+
+        # if there is a label generated make corresponding travel nodes
+        if len(self.labels) > 0:
+            label_width = self.labels[0].width
+            label_height = self.labels[0].height
+
+            # create an array holding custom node classes
+            self.verticle_nodes = [line_node(
+                # x value composed of base and width, then semester offset
+                # and finally break the gap between the labels down into the requiired number of positions (based on number of nodes set above)
+                xbase + label_width + xmove * (semester) + (xmove - label_width)/(num_nodes+1)*num, 
+                0, semester+1, num) # y value, semester and node number for that semester
+                for semester in range(len(course_list)) # loop through each item and... 
+                for num in range(1,num_nodes + 1)] # add the required number of nodes
+            
+            # debugging tool to illustrate above nodes as lines [uses the same principles]
+            if debug_lines:
+                [(lambda x: self.create_line(x,20,x,400))(x.xpos) for x in self.verticle_nodes]
+
+            # create an array holding custom node classes
+            self.horizontal_nodes = [line_node(0, # class call and x value
+                # y value composed of base and height, then course number offset
+                # and finally break the gap between the labels down into the requiired number of positions (based on number of nodes set above)
+                (ybase + label_height + ymove * (course_num) + (ymove - label_height)/(num_nodes+1)*num),
+                course_num+1, num) # course_number and node number for that semester
+                
+                # loop through a certain number of times creating nodes based on the largest number of courses in a semester in the plan
+                # largest number found by getting the maximum value from a list comprhension that holds the number of times each semester appears in a list
+                # generated by another list comprehension that just holds all of the semester in the list of courses and searches for every semester
+                for course_num in range(max(
+                        [
+                            [x.semester for x in course_list].count(search_term)
+                                for search_term in range(
+                                    max([x.semester for x in course_list])
+                                    )
+                        ]
+                    ))
+                for num in range(1,num_nodes+1)] # add the required number of nodes
+            
+            # debugging tool to illustrate above nodes as lines [uses the same principles as above]
+            if debug_lines:
+                [(lambda x: self.create_line(20,x,1200,x,fill='light cyan'))(x.ypos) for x in self.horizontal_nodes]
+
+    # draw line from label code to course code if label = a prereq
+    # the most nested loops you have ever seen
+    def generate_lines(self):
+        for major_label in self.labels: # get one label
+            if len(major_label.course.prerequisite) > 0: # only proceed if one exists
+                for minor_label in self.labels: # get second label
+                    if minor_label.course.code in ''.join(major_label.course.prerequisite):  # check if second label is in prerequisites
+                        # TODO above will not check for seperate lines
+                        for major_node in major_label.nodesIn: # get first node
+                            if not major_node.used: # ensure its not used
+                                for minor_node in minor_label.nodesOut: # get second node
+                                    if not minor_node.used: # check its not used
+                                        if minor_label.course.semester + 1 == major_label.course.semester: # if in sequential semesters
+                                            if major_node.ypos == minor_node.ypos:  # if they are on the same y-level
+                                                self.create_line(minor_node.coords,major_node.coords,fill='red') # create line using direct coordinates 
+                                                major_node.used, minor_node.used = True,True # mark as used
+
+                                                # print('No itermediate for {} to {} || used minor {} and major {}'.format(minor_label.text,
+                                                #     major_label.text,minor_node.number,major_node.number),end=line_ending,file=stderr)
+
+                                                break # break out of minor_node search when line is created
+                                            else: # if they aren't on the same level
+                                              # check through verticle nodes backwards to preference closer nodes to lines that have to go to other  locations
+                                                for v_node in self.verticle_nodes[::-1]:  
+                                                    # check node isn't used and that the node is on the right semester
+                                                    if not v_node.used and v_node.number[0] == minor_label.course.semester: 
+                                                        self.create_line(minor_node.coords,(v_node.xpos,minor_node.ypos), # create line using coordinates of lines and v-line
+                                                            (v_node.xpos,major_node.ypos),major_node.coords,fill='red')
+                                                        major_node.used, minor_node.used, v_node.used = True,True,True # mark as used
+
+                                                        # print('Itermediate used for {} to {} || used minor {} and major {} || used v_node {}'.format(minor_label.text,
+                                                        #     major_label.text,minor_node.number,major_node.number,v_node.number),end=line_ending,file=stderr)
+
+                                                        break # out of v_node search when line created
+                                                break # break out of minor_node search when line is created
+                                        else: # if they aren't on sequential semesters
+                                            for v_node_minor in self.verticle_nodes[::-1]:
+                                                    # check node isn't used and that the node is on the right semester
+                                                    if not v_node_minor.used and v_node_minor.number[0] == minor_label.course.semester: 
+                                                        for h_node in self.horizontal_nodes:
+                                                            if not h_node.used and h_node.ypos > minor_node.ypos: 
+                                                                # check through verticle nodes backwards to preference closer nodes to lines that have to go to other locations
+                                                                for v_node_major in self.verticle_nodes[::-1]:  # check through verticle nodes
+                                                                    # check node isn't used and that the node is on the right semester
+                                                                    if not v_node_major.used and v_node_major.number[0] == major_label.course.semester-1: 
+                                                                        # create line using coordinates of lines, v-line and h-line 
+                                                                        # from label to v-line to h-line to h-line to v-line to label
+                                                                        self.create_line(minor_node.coords,(v_node_minor.xpos,minor_node.ypos),
+                                                                            (v_node_minor.xpos,h_node.ypos),(v_node_major.xpos,h_node.ypos), 
+                                                                            (v_node_major.xpos,major_node.ypos),major_node.coords,fill='red')
+
+                                                                        major_node.used, minor_node.used = True,True # mark as used
+                                                                        v_node_minor.used, v_node_major.used, h_node.used = True,True,True # mark as used
+
+                                                                        # print('Itermediate used for {} to {} || used minor {} and major {} || used minor v_node {} || used h_node {} || used major v_node {}'.format(minor_label.text, major_label.text,minor_node.number,major_node.number,v_node_minor.number,h_node.number, v_node_major.number),end=line_ending,file=stderr)  
+                                                                        break # out of v_node search when line created 
+                                                                break # out of h_node search when line created 
+                                                        break # out of v_node search when line created 
+                                            break # break out of minor_node search when line is created
+                                break # break out of major_node search when line is created or when minor_nodes run out
+
+# creates the application
+class Application():
+
+    def __init__(self, master=None):
+        # Window Managment
+        master.title('UQ Course Map Alpha')
+        master.geometry('1200x400')
+        master.resizable(0,0)
         
-##############################################  WORKSPACE   ##############################################
+        # creating the canvas
+        canvas = objectCanvas(master,course_items)
+        canvas.pack(fill=tk.BOTH, expand=True)
 
-#########################################
-#               MAIN CALL               #
-#########################################
+# list of courses
+course_items = [
+    course('CSSE1001',1),
 
-# create app if called directly
-# prevent creation on import
+    course('MATH1061',2),
+
+    course('MATH1051',3),
+    course('INFS1200',3),
+    course('CSSE2010',3),
+
+    course('CSSE2002',4),
+    course('INFS2200',4),
+    course('CSSE2310',4),
+
+    course('COMP2048',5),
+    course('INFS3202',5),
+    course('INFS3200',5),
+    course('MATH2301',5),
+
+    course('STAT2203',6),
+    course('COMP3506',6),
+    course('COMS3000',6)
+    ]
+# call
 if __name__ == "__main__":
-    app = coursePlannerAssistantApp()
-    # start the app
-    app.mainloop()
+    root = tk.Tk()
+    app = Application(master=root)
+    root.mainloop()
+
+# TODO
+# add a loading bar
+# TODO issues
+# atm, the code will not draw lines for anything other than prerequisites, 
+# atm, the code also can not distinguish between different prerequisite lines and so will draw everything
+# there is also the chance that the code will run out of nodes to draw with
