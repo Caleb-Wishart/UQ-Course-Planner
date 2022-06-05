@@ -4,8 +4,6 @@ from uqCoursePlanner.customWidgets import *
 from uqCoursePlanner.scraper import *
 from uqCoursePlanner.subjectClasses import *
 
-# 1000+ lines and counting (across files)
-
 # TODO TODO TODO TODO
 # intermediary node lines
 # VS Code syntax highlighitng
@@ -15,302 +13,268 @@ from uqCoursePlanner.subjectClasses import *
 # refactor clusters of code in class methods and make more methods
 # TODO TODO TODO TODO
 
+# TODO todo list
+"""
+refactor instance variables that should be class variables
+refactor clusters of code in class methods and make more methods
+large mapping area
+settings area
+    [
+        default num classes per add Semester
+    ]
+select prerequisite layout for courses
+add second check when deleting semesters
+investigate asyncio and threads https://www.youtube.com/watch?v=9zinZmE3Ogk&t=2244s
+"""
 #########################################
 #       Tkinter Frames and pages        #
 #########################################
 
-# the course selection criteria
-class coursePage(defaultFrame):
-    # the parent container and tkinter Controller
-    def __init__(self,parentApp,controller):
+
+class CoursePage(DefaultFrame):
+    """The Course Page
+
+        A tkinter Frame that contains editable labels that the user can use to select courses
+
+    Parameters:
+        parentApp (cls): Parent application for reference.
+        controller (tk.Tk()): tkinter Tk class
+    """
+
+    def __init__(self, parentApp, controller):
         # Frame Initialisation
-        super().__init__(parentApp,controller,'Course Search')
+        super().__init__(parentApp, controller, 'Course Search')
 
         # tkinter widget array
         self.labels = []
 
-        # courses that are not a part of the user description
-        self.null_semester = semester(-1)
+        # Courses that are not a part of the user description
+        self.null_semester = Semester(-1)
 
         # status on the web querry
-        self.webQueryStatus = webQuerryStatusBar(self,self.controller)
-        self.webQueryStatus.grid(row=0,column=2)
+        self.web_query_status = WebQuerryStatusBar(self, self.controller)
+        self.web_query_status.grid(row=0, column=2)
 
         self.semesters = []
-        # creating the first semester
-        self.semesters.append(semester(1))
-        self.semesters[0].addCourse(course(self,self.controller,parent_semester=self.semesters[0]))
+        # creating the first Semester
+        self.semesters.append(Semester(1))
+        self.semesters[0].add_course(
+            Course(self, self.controller, parent_semester=self.semesters[0])
+        )
 
         # initial generation
-        self.generateLabels()
+        self.generate_labels()
 
-    # generate the dynamic UI
-    def generateLabels(self):
+    def __repr__(self):
+        return f'<CoursePage: Labels: {self.labels}>'
+
+    def generate_labels(self) -> None:
+        """Deletes (if existing) and regenerates the custom tkinter labels and course and semester amount controls on the page"""
         # start by destroying any existing widgets
         for widget in self.labels:
-            if widget.ID == "courseLabel" or widget.ID == "semesterLabel":
+            if widget.ID == "CourseLabel" or widget.ID == "SemesterLabel":
                 widget.destroy()
-            elif widget.ID == "courseNumControls" or widget.ID == "semesterNumControls":
-                widget.destroyElements()
+            elif widget.ID == "CourseNumControls" or widget.ID == "SemesterNumControls":
+                widget.destroy_elements()
             else:
-                print("unexpected widget in label area") # unexpected item in the bagging area
+                # unexpected item in the bagging area
+                error_print("unexpected widget in label area")
         # reset list
         self.labels = []
 
         # redraw all widgets
         for sem in self.semesters:
-            # semester label
-            self.labels.append(semesterLabel(self,sem.semester_number))
-            # course code entrys
+            # Semester label
+            self.labels.append(
+                SemesterLabel(self, sem.semester_number)
+            )
+            # Course code entrys
             for course_object in sem.courses:
-                self.labels.append(courseLabel(self,self.controller,course_object,sem.semester_number,course_object.location))
-            # courseNum controller
-            self.labels.append(courseNumControls(self,self.controller,sem))
-        # add the semesterNum controller at the end
-        self.labels.append(semesterNumControls(self,len(self.semesters)))
+                self.labels.append(
+                    CourseLabel(self, self.controller, course_object,
+                                sem.semester_number, course_object.location)
+                )
+            # CourseNum controller
+            self.labels.append(
+                CourseNumControls(self, self.controller, sem)
+            )
+        # add the SemesterNum controller at the end
+        self.labels.append(
+            SemesterNumControls(self, len(self.semesters))
+        )
         self.controller.update()
 
-    #  add a semester the the semester list
-    def addSemester(self):
-        self.semesters.append(semester(len(self.semesters) + 1))
-        self.semesters[-1].addCourse(course(self,self.controller,parent_semester=self.semesters[-1]))
+    def add_semester(self) -> None:
+        """Addes a semester to the list of semesters and fills it with a default course"""
+        self.semesters.append(
+            Semester(len(self.semesters) + 1)
+        )
+        self.semesters[-1].add_course(
+            Course(self, self.controller, parent_semester=self.semesters[-1])
+        )
 
-    # remove the last semester from the list
-    def popSemester(self):
+    def pop_Semester(self) -> None:
+        """Removes the last semster from the list"""
         self.semesters.pop()
 
-    def updateWidgetCourseObjects(self):
+    def update_widget_course_objects(self) -> None:
+        """For each CourseLabel request that the course item be updated"""
         for widget in self.labels:
-            if widget.ID == "courseLabel":
-                widget.queryWeb()
+            if widget.ID == "CourseLabel":
+                widget.label_query_web_request()
 
-    def updateMasterCourseList(self):
+    def update_master_course_list(self) -> None:
+        """If an item is in a null_semester (meaning it isn't in their list) but not in the master list of courses, add it to the master list"""
         for course in self.null_semester.courses:
-            if course not in self.controller.courseList:
-                self.controller.courseList.append(course)
+            if course not in self.controller.course_list:
+                self.controller.course_list.append(course)
 
-# the main canvas for the course mapping
-class courseMappingPage(defaultFrame):
+
+class CourseMappingPage(DefaultFrame):
+    """The Course Mapping Page
+
+        A tkinter Frame that contains a map veiw layout of all the users selected courses
+
+    Parameters:
+        parentApp (cls): Parent application for reference.
+        controller (tk.Tk()): tkinter Tk class
+    """
     # the parent container and tkinter Controller
-    def __init__(self,parentApp,controller):
+
+    def __init__(self, parentApp, controller):
         # Frame Initialisation
-        super().__init__(parentApp,controller,'Course Map')
+        super().__init__(parentApp, controller, 'Course Map')
         # canvas item
         canvas = tk.Canvas(self)
-        canvas.grid(row=1,column=1)
+        canvas.grid(row=1, column=1)
 
-# the main frame for the course descriptions
-class courseInfoPage(defaultFrame):
-    # the parent container and tkinter Controller
-    def __init__(self,parentApp,controller):
+    def __repr__(self):
+        return '<CourseMappingPage>'
+
+
+class CourseInfoPage(DefaultFrame):
+    """The Course Info Page
+
+        A tkinter Frame that contains information on a course the user selects
+
+    Parameters:
+        parentApp (cls): Parent application for reference.
+        controller (tk.Tk()): tkinter Tk class
+    """
+
+    def __init__(self, parentApp, controller):
         # Frame Initialisation
-        super().__init__(parentApp,controller,'Course Information')
+        super().__init__(parentApp, controller, 'Course Information')
 
-        self.optionSelect = courseInfoSelect(self,self.controller)
-        self.optionSelect.grid(row=0,column=2)
+        self.option_select = CourseInfoSelect(self, self.controller)
+        self.option_select.grid(row=0, column=2)
 
-        tk.Label(self,relief=tk.GROOVE,text="Code",font=standardFont,background=standardWidgetColour,padx=4,pady=4).grid(row=1,column=1,sticky=tk.N)
+        tk.Label(self, relief=tk.GROOVE, text="Code", font=standard_font,
+                 background=standard_widget_colour, padx=4, pady=4).grid(row=1, column=1, sticky=tk.N)
 
-        self.title = tk.Label(self,relief=tk.GROOVE,text=self.optionSelect.text.get(),font=standardFont,background=standardWidgetColour,padx=4,pady=4)
-        self.title.grid(row=1,column=1)
+        self.title = tk.Label(self, relief=tk.GROOVE, text=self.option_select.text.get(),
+                              font=standard_font, background=standard_widget_colour, padx=4, pady=4)
+        self.title.grid(row=1, column=1)
 
-        self.description = scrollableRegion(self)
-        self.description.grid(row=1,column=2)
+        self.description = ScrollableRegion(self)
+        self.description.grid(row=1, column=2)
 
-        self.prereqMap = courseMap(self,self.controller)
-        self.prereqMap.grid(row=2,column=2,pady=10)
+        self.prerequisite_map = CourseMap(self, self.controller)
+        self.prerequisite_map.grid(row=2, column=1, columnspan=2, pady=10)
 
         # status on the web querry
-        self.webQueryStatus = webQuerryStatusBar(self,self.controller)
-        self.webQueryStatus.grid(row=2,column=0)
+        self.web_query_status = WebQuerryStatusBar(self, self.controller)
+        self.web_query_status.grid(row=2, column=0)
 
-    def updatePage(self):
-        code = self.optionSelect.text.get()
+    def __repr__(self):
+        return f'<CourseInfoPage: Selected item:{self.title["text"]}>'
+
+    def update_page(self) -> None:
+        """Updates the contents of the prerequisite_map and description items"""
+        code = self.option_select.text.get()
         self.title["text"] = code
 
         self.description.text['state'] = tk.NORMAL
-        self.description.text.delete(1.0,tk.END)
-        self.description.text.insert(tk.INSERT, *[co.description for co in self.optionSelect.options if co.code == code])
+        self.description.text.delete(1.0, tk.END)
+        self.description.text.insert(
+            tk.INSERT, *[co.description for co in self.option_select.options if co.code == code])
         self.description.text['state'] = tk.DISABLED
 
-        self.prereqMap.updateCanvas(code)
+        self.prerequisite_map.updateCanvas(code)
 
 #########################################
 #               MAIN APP                #
 #########################################
-# the main application wrapper for the program
-class coursePlannerAssistantApp(tk.Tk):
+
+
+class CoursePlannerAssistantApp(tk.Tk):
+    """Application Wrapper
+
+        A class that inherits from tk.Tk() to house tkinter objects
+    """
     # standard openning
-    def __init__(self, *args,**kwargs):
+
+    def __init__(self, *args, **kwargs):
         # Tk initiatilsation
-        tk.Tk.__init__(self, *args,**kwargs)
+        tk.Tk.__init__(self, *args, **kwargs)
 
         # Window Managment
-        self.title('UQ Course Planner Assistant: Alpha')
+        self.title(f'UQ Course Planner Assistant: {Appversion}')
         self.geometry('960x540')
         # self.resizable(0,0)
 
         # the master container for the program
         container = tk.Frame(self)
-        container.pack(side=tk.TOP,fill=tk.BOTH,expand=True)
+        container.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         # setting defaults
-        container.grid_rowconfigure(0,weight=1)
-        container.grid_columnconfigure(0,weight=1)
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
 
         self.frames = {}
-        self.pageFuncs = (coursePage,courseMappingPage,courseInfoPage)
+        self.page_classes = (CoursePage, CourseMappingPage, CourseInfoPage)
 
-        self.courseList = []
+        self.course_list = []
 
         # create the frames
-        for F in self.pageFuncs:
+        for F in self.page_classes:
             frame = F(container, self)
             self.frames[F] = frame
-            frame.grid(row=0,column=0,sticky=tk.NSEW)
+            frame.grid(row=0, column=0, sticky=tk.NSEW)
 
         # call the first screen
-        self.show_frame(coursePage)
+        self.show_frame(CoursePage)
 
         # draw default widgets after all frames have been initialised
         # required as navigation references self.frames items
-        for page in self.pageFuncs:
+        for page in self.page_classes:
             self.frames[page].draw_default_widgets()
 
-    # bring the specified frame to the front
-    def show_frame(self, cont):
+    def show_frame(self, cont) -> None:
+        """brings the specified frame to the front"""
         frame = self.frames[cont]
         frame.tkraise()
         # update items
-        if cont == courseInfoPage:
-            self.frames[cont].optionSelect.updateCourseInfoSelection()
+        if cont == CourseInfoPage:
+            self.frames[cont].option_select.update_selection_options()
 
-    def tallyPrerequisites(self,searchCode):
+    def tally_prerequisites(self, searchCode: str) -> None:
+        """for each course in the master list, if that item is a prerequisite of some other course, add it to its sublist"""
         # clear list
-        self.courseList[self.courseList.index(searchCode)].prereq_for.clear()
+        self.course_list[self.course_list.index(searchCode)].prereq_for.clear()
         # add to list
-        print(f'searching for {searchCode.code} in course prerequisites')
-        for course in self.courseList:
+        verbose_print(
+            f'\t{line_segment}\n\tsearching for {searchCode.code} in Course prerequisites', end='\n')
+        for course in self.course_list:
             if searchCode.code in set([code for item in course.prerequisite for code in item.split(',')]):
-                self.courseList[self.courseList.index(searchCode)].prereq_for.append(course)
-                print(f'added {searchCode.code} to {course.code} prerequisite')
+                self.course_list[self.course_list.index(
+                    searchCode)].prereq_for.append(course)
+                verbose_print(
+                    f'\t\tadded {searchCode.code} to {course.code} prerequisite', end='\n')
+        verbose_print(
+            f'\tFinished searching for {searchCode.code} in Course prerequisites', end=f'\n\t{line_segment}\n')
 
 ##############################################  WORKSPACE   ##############################################
-
-#########################################
-#          Mapping Components           #
-#########################################
-# a custom canvas that shows a map of courses
-class courseMap(tk.Frame):
-
-    def __init__(self,parentPage,controller):
-        tk.Frame.__init__(self,parentPage)
-        self.parentPage = parentPage
-        self.controller = controller
-
-        self.canvasLabels = []
-        self.canvasLines = []
-
-        self.tagTextBox = 'textBox'
-        self.tagTextItem = 'textItem'
-        self.tagNode = 'textNode'
-        self.tagArrow = 'arrow'
-
-        self.width = 500
-        self.height = 200
-
-        self.boxHeight = 30
-        self.boxWidth = self.boxHeight*5/2
-
-        # group title
-        self.title = tk.Label(self,relief=standardRelief,text="Prerequisite Map",font=standardFont,background=standardWidgetColour,padx=4,pady=4)
-        self.title.pack(side=tk.TOP)
-        # canvas
-        self.canvas = tk.Canvas(self,bg=standardWidgetColour,relief=standardRelief,width=self.width,height=self.height)
-        self.canvas.pack()
-
-    def updateCanvas(self,code):
-        # check valid code
-        self.canvas.delete(tk.ALL)
-        course = [course for course in self.controller.courseList if course.code == code]
-        # ensure there is one and only one item
-        if len(course) == 1:
-            course = course[0]
-
-            # find out how many courses this item is a prerequisite for
-            course.prerequisiteMapping(self.parentPage)
-            maplist = course.prerequisiteMap
-            maplist.reverse()
-            numCol = len(maplist)
-            # labels
-            for colLevel, subgroup in enumerate(maplist,1):
-                for rowLevel, cor in enumerate(subgroup,1):
-                    numRows = len(subgroup)
-                    self.draw_Label(cor.code,numCol,numRows,colLevel,rowLevel)
-            maplist.reverse()
-            # arrows
-            for colLevel, subgroup in enumerate(maplist,1):
-                for rowLevel, cor in enumerate(subgroup,1):
-                    # search for prerequisites
-                    self.controller.tallyPrerequisites(cor)
-                    endPrint(f'corse {cor.code} is prereq for {cor.prereq_for}')
-                    for item in cor.prereq_for:
-                        self.draw_Line(cor.code,item.code)
-
-    # draw label with pos being top left of box
-    def draw_Label(self,text,numCol,numRow,col,row):
-        if numCol == 1:
-            x = (self.width) * 0.5 - self.boxWidth/2
-        else:
-            x = (self.width) * 0.5 + self.boxWidth * 1.5 * (-numCol +1 +col)  - self.boxWidth/2
-        if numRow == 1:
-            y = (self.height) * 0.5 - self.boxHeight/2
-        else:
-            y = (self.height) * 0.5 + self.boxHeight * 1.5 * (-numRow +1 +row) - self.boxHeight/2
-        # tryu find the item with the tag code + textBox
-        try:
-            item1 = self.canvas.find_withtag(text+self.tagTextBox)[0]
-            verbosePrint(f'{text} already exists, creating node')
-            x += self.boxWidth/2
-            y += self.boxHeight/2
-            self.canvas.create_rectangle(x,y,x,y,fill='black',tags=text+self.tagNode)
-        except:
-            # else make box and text item
-
-                self.canvas.create_rectangle(x,y,x+self.boxWidth,y+self.boxHeight,fill='light blue',tags=text+self.tagTextBox)
-                self.canvas.create_text(x+self.boxWidth/2,y+self.boxHeight/2,text=text,font=standardFont,tags=text+self.tagTextItem)
-                verbosePrint(f'drew {text} at of row {row}, column {col},x: {x},y:{y}, numCol: {numCol}, numRow: {numRow}')
-
-    # draw a line from point a to b
-    # code 1 is the left box
-    def draw_Line(self,code1,code2):
-        # check for existing instance
-        try:
-            item1 = self.canvas.find_withtag(code1+self.tagArrow+code2)[0]
-            if item1 != None: # i.e. exists
-                verbosePrint(f'Arrow from {code1} to {code2} already exists')
-                return None
-        except:
-            # item doesn't exist
-            pass
-        # find the item with the tag code + textBox
-        try:
-            item1 = self.canvas.find_withtag(code1+self.tagTextBox)[0]
-            item2 = self.canvas.find_withtag(code2+self.tagTextBox)[0]
-        except:
-        # if item does not exist return
-            verbosePrint(f'{code1} or {code2} Item does not exist')
-            return None
-
-        x1,y1,x2,y2 = self.canvas.coords(item1)
-        a1,b1,a2,b2 = self.canvas.coords(item2)
-
-        boxwidth = x2-x1
-        boxheight = y2-y1
-
-        self.canvas.create_line((x2,y1+boxheight/2),(a1,b1+boxheight/2),fill="red",width=2, arrow=tk.LAST,tags=code1+self.tagArrow+code2)
-        verbosePrint(f'Line drawn from {code1} to {code2}')
-
 
 ##############################################  WORKSPACE   ##############################################
 
@@ -318,9 +282,10 @@ class courseMap(tk.Frame):
 #               MAIN CALL               #
 #########################################
 
+
 # create app if called directly
 # prevent creation on import
 if __name__ == "__main__":
-    app = coursePlannerAssistantApp()
+    app = CoursePlannerAssistantApp()
     # start the app
     app.mainloop()
