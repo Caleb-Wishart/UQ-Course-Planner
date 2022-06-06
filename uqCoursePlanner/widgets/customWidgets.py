@@ -1,11 +1,10 @@
 import re
 import tkinter as tk
-from tkinter.font import Font
 import threading
 from typing import Tuple
 
-from .appSettings import end_print
-from .subjectClasses import Course
+from ..subjectClasses import Course
+
 
 #########################################
 #         MISC GLOBAL VARIABLES         #
@@ -176,7 +175,7 @@ class CourseSearch(tk.Entry):
 
     def print_handler(self) -> None:
         """Triggers on enter being pressed in widget, prints debug information"""
-        end_print(self.get(), len(self.get()))
+        print(self.get(), len(self.get()))
 
 
 class SelectBox(tk.Frame):
@@ -368,3 +367,5 @@ class CourseCanvas(tk.Canvas):
 #########################################
 #                Labels                 #
 #########################################
+
+# ʕ •ᴥ•ʔ

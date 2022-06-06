@@ -6,8 +6,10 @@ import re
 import threading
 from typing import List
 
-from .scraper import LogicParser, WebsiteScraper
-from .appSettings import year, default_description
+from .scraper import Scraper
+from .parser import Parser
+
+default_description = "Course Description Placeholder Text\nTry pressing Send 2 Web on the Course Search page\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7"
 #########################################
 #    Classes for real world concepts    #
 #########################################
@@ -39,18 +41,18 @@ class Course():
         self.code = code
 
         # attributes
-        (soup, self.status_code) = WebsiteScraper.fetch_HTML(self.code, year)
+        (soup, self.status_code) = Scraper.fetch_HTML(self.code)
 
         # lists of attributes to search
         search_fields = ["course-prerequisite", "course-summary"]
-        fields = {key: WebsiteScraper.get_Field_Contents(
+        fields = {key: Scraper.get_Field_Contents(
             soup, key, self.code) for key in search_fields}
 
         self.recommended = []
         self.companion = []
         self.incompatible = []
 
-        self.prerequisite = LogicParser().prerequisite_combinations_list(
+        self.prerequisite = Parser().parse_prerequisites(
             fields["course-prerequisite"])
         self.description = fields["course-summary"] if fields["course-summary"] is not None else default_description
 
@@ -60,7 +62,7 @@ class Course():
         Course.courses[self.code] = self
 
     def __repr__(self):
-        return f"<CourseClass: {self.code}: Prerequisites: {self.prerequisite}>"
+        return f"<{self.code}: Prerequisites: {self.prerequisite}>"
 
     def expand_prerequisites(self) -> None:
         if self.prerequisite_tree is None:

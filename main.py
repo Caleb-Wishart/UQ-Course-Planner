@@ -2,7 +2,7 @@ import tkinter as tk
 import threading
 
 
-from uqCoursePlanner.customWidgets import CourseCanvas, DefaultFrame, Controls, PageNavigation
+from uqCoursePlanner.widgets.customWidgets import CourseCanvas, DefaultFrame, Controls, PageNavigation
 from uqCoursePlanner.appSettings import Appversion
 
 """
@@ -153,3 +153,5 @@ def main():
 # prevent creation on import
 if __name__ == "__main__":
     main()
+
+# ʕ •ᴥ•ʔ
