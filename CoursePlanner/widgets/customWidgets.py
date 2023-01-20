@@ -1,9 +1,9 @@
 import re
 import tkinter as tk
 import threading
-from typing import Tuple
+from typing import Tuple, List, Any
 
-from ..subjectClasses import Course
+from ..classes.course import Course
 
 
 #########################################

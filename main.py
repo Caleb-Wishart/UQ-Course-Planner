@@ -2,8 +2,8 @@ import tkinter as tk
 import threading
 
 
-from uqCoursePlanner.widgets.customWidgets import CourseCanvas, DefaultFrame, Controls, PageNavigation
-from uqCoursePlanner.appSettings import Appversion
+from CoursePlanner.widgets.customWidgets import CourseCanvas, CourseSearch, DefaultFrame, Controls, PageNavigation, SelectBox
+from CoursePlanner.appSettings import Appversion
 
 """
 Change web scrape Thread to something similar to 2310 system with semaphore and locks
@@ -27,8 +27,7 @@ class MapPage(DefaultFrame):
 
     def __init__(self, master, head):
         # Frame Initialisation
-        super(self.__class__, self).__init__(
-            master, head, "Course Prerequisites")
+        super().__init__(master, head, "Course Prerequisites")
 
         self.widgets[CourseCanvas] = CourseCanvas(
             self, head, bg=self.colour, bd=0, highlightthickness=0, relief=tk.FLAT, confine=True)
@@ -52,7 +51,7 @@ class Settings(DefaultFrame):
 
     def __init__(self, master, head):
         # Frame Initialisation
-        super(self.__class__, self).__init__(
+        super().__init__(
             master, head, "Settings")
 
     def __repr__(self) -> str:
@@ -118,6 +117,8 @@ class Application(tk.Tk):
         # FIXME Change this to a more CPU friendly way so that the refresh is
         # not called event pixel change but until the window is done resizing
         self.bind("<Configure>", lambda event: self.page_refresh())
+        for page in self.pages:
+            print(self.frames[page].children)
 
     def show_frame(self, page) -> None:
         """brings the specified frame to the front"""
